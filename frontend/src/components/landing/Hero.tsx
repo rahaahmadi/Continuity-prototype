@@ -30,7 +30,7 @@ const Hero = () => {
             </p>
 
             <div className="flex flex-wrap justify-center gap-3 mb-12">
-              <Link to="/dashboard">
+              <Link to="/register">
                 <Button size="lg" className="gradient-gold text-accent-foreground shadow-gold hover:opacity-90 transition-opacity gap-2 text-base px-6">
                   Start Preparing <ArrowRight className="h-4 w-4" />
                 </Button>
