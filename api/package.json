@@ -1,0 +1,6 @@
+{
+  "name": "continuity-api",
+  "private": true,
+  "version": "0.0.0",
+  "description": "REST API for Continuity"
+}

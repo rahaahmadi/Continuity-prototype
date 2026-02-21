@@ -1,21 +1,27 @@
 # Continuity
 
-## Project info
+Agentic system to help small business owners prepare to sell: document upload and analysis, buyer-ready reports, Q&A over business knowledge, and owner interviews to externalize operations.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Repository structure
 
-Follow these steps:
+| Directory   | Purpose |
+|------------|---------|
+| **frontend/** | Web UI (React + Vite). Landing, dashboard, documents, reports, Q&A. |
+| **src/**      | Agentic core: agents, tools, memory, workflows. No implementation yet. |
+| **api/**      | REST backend layer. Routes, services, middleware. No implementation yet. |
+| **docs/**     | Design and operational docs (optional). |
+| **scripts/**  | Dev/deploy scripts (optional). |
+
+## Requirements
+
+- Node.js & npm (e.g. [nvm](https://github.com/nvm-sh/nvm#installing-and-updating))
+
+## Quick start (frontend only)
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
+cd frontend
 npm install
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
+
+The API and agentic core are scaffold-only for now; implement when you add the backend.
