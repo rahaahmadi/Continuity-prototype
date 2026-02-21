@@ -1,4 +1,4 @@
-"""Auth routes: register, login, me."""
+"""Auth routes: register, login, me, logout."""
 
 from typing import Annotated
 
@@ -88,3 +88,13 @@ async def me(
         is_active=current_user.is_active,
         created_at=current_user.created_at,
     )
+
+
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def logout(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> None:
+    """Log out the current user. Client should discard the access token after calling this."""
+    # JWT is stateless; invalidation is client-side. This endpoint allows the client
+    # to perform logout in a consistent way (e.g. call API then clear token).
+    pass

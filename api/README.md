@@ -60,6 +60,7 @@ REST backend for Continuity (FastAPI + PostgreSQL). Exposes auth and (later) doc
 | `POST` | `/api/auth/register` | Register with email and password |
 | `POST` | `/api/auth/login` | Login; returns JWT and user info (for redirect to dashboard) |
 | `GET`  | `/api/auth/me`       | Current user (requires `Authorization: Bearer <token>`) |
+| `POST` | `/api/auth/logout`   | Log out (requires Bearer token); client should discard token after calling |
 
 - **Register**: body `{ "email": "user@example.com", "password": "..." }`. Password: 8–128 chars, at least one upper, one lower, one digit.
 - **Login**: same body; response includes `access_token` and `user` (id, email, etc.). Frontend can store the token and redirect to dashboard.
