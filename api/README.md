@@ -1,12 +1,80 @@
-# REST API layer
+# Continuity API
 
-REST backend for Continuity. Exposes endpoints for the frontend: document upload, analysis triggers, report generation, Q&A, and interview sessions.
+REST backend for Continuity (FastAPI + PostgreSQL). Exposes auth and (later) document upload, analysis, reports, Q&A, and interview sessions.
 
-## Intended structure (scaffold only)
+## Stack
 
-- **routes/** — Route handlers by domain (documents, reports, qa, interviews, etc.).
-- **services/** — Business logic that calls into the agentic `src/` core.
-- **middleware/** — Auth, validation, error handling.
-- **config/** — Environment and app configuration.
+- **FastAPI** – REST API
+- **PostgreSQL** – database (async via `asyncpg`)
+- **SQLAlchemy 2** – async ORM and migrations (Alembic)
+- **JWT** – access tokens for login
+- **bcrypt** – password hashing
 
-No implementation yet; add framework and code when you start building.
+## Setup
+
+1. **Python 3.11+** and a running **PostgreSQL** instance.
+
+2. **Create a database** (e.g. `continuity`):
+
+   ```bash
+   createdb continuity
+   ```
+
+3. **From the `api` directory**, create a virtualenv and install deps:
+
+   ```bash
+   cd api
+   python -m venv .venv
+   .venv\Scripts\activate   # Windows
+   # source .venv/bin/activate  # macOS/Linux
+   pip install -r requirements.txt
+   ```
+
+4. **Copy env and edit**:
+
+   ```bash
+   copy .env.example .env   # Windows
+   # cp .env.example .env   # macOS/Linux
+   ```
+
+   Set `DATABASE_URL` to your Postgres connection (use `postgresql+asyncpg://...`). Set a strong `SECRET_KEY` in production.
+
+5. **Run migrations**:
+
+   ```bash
+   alembic upgrade head
+   ```
+
+6. **Run the server**:
+
+   ```bash
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   ```
+
+   API base: `http://localhost:8000`. Docs: `http://localhost:8000/docs`.
+
+## Auth endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/auth/register` | Register with email and password |
+| `POST` | `/api/auth/login` | Login; returns JWT and user info (for redirect to dashboard) |
+| `GET`  | `/api/auth/me`       | Current user (requires `Authorization: Bearer <token>`) |
+
+- **Register**: body `{ "email": "user@example.com", "password": "..." }`. Password: 8–128 chars, at least one upper, one lower, one digit.
+- **Login**: same body; response includes `access_token` and `user` (id, email, etc.). Frontend can store the token and redirect to dashboard.
+- **Protected routes**: send header `Authorization: Bearer <access_token>`.
+
+## Project layout
+
+- **app/** – FastAPI app
+  - **config.py** – settings from env
+  - **database.py** – async engine and session
+  - **deps.py** – `get_current_user` and DB dependency
+  - **main.py** – app, CORS, router mount
+  - **models/** – SQLAlchemy models (e.g. `User`)
+  - **routers/** – route modules (e.g. `auth`)
+  - **schemas/** – Pydantic request/response models
+  - **services/** – auth helpers (password hash, JWT)
+- **alembic/** – migrations
+- **requirements.txt** – Python dependencies
