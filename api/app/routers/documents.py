@@ -1,4 +1,4 @@
-"""Document routes: upload (POST) and list/get (GET)."""
+"""Document routes: upload (POST), list/get (GET), delete (DELETE)."""
 
 import uuid
 from pathlib import Path
@@ -162,3 +162,22 @@ async def download_document(
         filename=doc.filename,
         media_type=doc.content_type,
     )
+
+
+@router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_document(
+    document_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> None:
+    """Delete a document and its file. User can only delete their own documents."""
+    result = await db.execute(
+        select(Document).where(Document.id == document_id, Document.user_id == current_user.id)
+    )
+    doc = result.scalar_one_or_none()
+    if doc is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    full_path = Path(settings.upload_dir).resolve() / doc.stored_path
+    full_path.unlink(missing_ok=True)
+    await db.delete(doc)
+    return None
