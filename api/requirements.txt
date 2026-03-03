@@ -1,0 +1,19 @@
+# Web
+fastapi
+uvicorn[standard]
+
+# Database
+sqlalchemy[asyncio]
+asyncpg
+psycopg2-binary
+alembic
+
+# Auth & validation
+python-jose[cryptography]
+bcrypt>=4.0,<5
+pydantic[email-validator]
+pydantic[email]
+pydantic-settings
+
+# Utils
+python-multipart
