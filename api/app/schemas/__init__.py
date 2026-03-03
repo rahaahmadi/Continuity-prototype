@@ -6,8 +6,11 @@ from app.schemas.auth import (
     TokenPayload,
     UserResponse,
 )
+from app.schemas.document import DocumentListResponse, DocumentResponse
 
 __all__ = [
+    "DocumentListResponse",
+    "DocumentResponse",
     "LoginRequest",
     "LoginResponse",
     "RegisterRequest",

@@ -26,5 +26,8 @@ class Settings(BaseSettings):
     # CORS (comma-separated origins; * for development only)
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
+    # Document uploads (directory on server; created if missing)
+    upload_dir: str = "./uploads"
+
 
 settings = Settings()

@@ -9,7 +9,7 @@ from sqlalchemy.pool import NullPool
 
 from app.config import settings
 from app.database import Base
-from app.models import User  # noqa: F401 - ensure models are registered
+from app.models import Document, User  # noqa: F401 - ensure models are registered
 
 config = context.config
 if config.config_file_name is not None:
