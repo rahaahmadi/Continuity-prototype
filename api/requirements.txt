@@ -17,3 +17,13 @@ pydantic-settings
 
 # Utils
 python-multipart
+
+# Celery & Redis
+celery[redis]
+redis
+
+# Document classification (LLM + text extraction)
+langchain-core
+langchain-openai
+langchain-text-splitters
+pypdf

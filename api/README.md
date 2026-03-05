@@ -53,6 +53,37 @@ REST backend for Continuity (FastAPI + PostgreSQL). Exposes auth and (later) doc
 
    API base: `http://localhost:8000`. Docs: `http://localhost:8000/docs`.
 
+## Document classification (Celery + Redis + LangChain)
+
+After upload, each document is classified in the background into one of 10 categories (e.g. FINANCIAL INFORMATION, LEGAL & COMPLIANCE). The classifier uses LangChain and an LLM (OpenAI by default); the result is stored in the `documents.classification` column.
+
+1. **Run Redis** (e.g. locally):
+
+   ```bash
+   redis-server
+   ```
+
+2. **Set env** in `.env`:
+
+   - `REDIS_URL=redis://localhost:6379/0`
+   - `OPENAI_API_KEY=<your-key>` (required for classification; if missing, classification stays `null`)
+   - Optionally `OPENAI_MODEL=gpt-4o-mini` (default) or another model
+   - `DATABASE_URL_SYNC=postgresql+psycopg2://postgres:postgres@localhost:5432/continuity` (sync URL for Celery workers)
+
+3. **Run a Celery worker** from the `api` directory:
+
+   ```bash
+   celery -A app.celery_app worker --loglevel=info
+   ```
+
+4. **Run migrations** so the `documents.classification` column exists:
+
+   ```bash
+   alembic upgrade head
+   ```
+
+Uploaded documents will get a classification asynchronously; list/get document responses include `classification` (string or null).
+
 ## Auth endpoints
 
 | Method | Path | Description |
