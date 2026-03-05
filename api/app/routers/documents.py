@@ -14,6 +14,7 @@ from app.database import get_db
 from app.deps import get_current_user
 from app.models import Document, User
 from app.schemas.document import DocumentListResponse, DocumentResponse
+from app.tasks.document_tasks import classify_document_task
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -86,12 +87,14 @@ async def upload_document(
     db.add(doc)
     await db.flush()
     await db.refresh(doc)
+    classify_document_task.delay(str(doc.id))
     return DocumentResponse(
         id=doc.id,
         filename=doc.filename,
         content_type=doc.content_type,
         size_bytes=doc.size_bytes,
         created_at=doc.created_at,
+        classification=doc.classification,
     )
 
 
@@ -113,6 +116,7 @@ async def list_documents(
                 content_type=d.content_type,
                 size_bytes=d.size_bytes,
                 created_at=d.created_at,
+                classification=d.classification,
             )
             for d in docs
         ]
@@ -138,6 +142,7 @@ async def get_document(
         content_type=doc.content_type,
         size_bytes=doc.size_bytes,
         created_at=doc.created_at,
+        classification=doc.classification,
     )
 
 

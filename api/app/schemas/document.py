@@ -14,6 +14,7 @@ class DocumentResponse(BaseModel):
     content_type: str
     size_bytes: int
     created_at: datetime
+    classification: str | None = None
 
     model_config = {"from_attributes": True}
 
