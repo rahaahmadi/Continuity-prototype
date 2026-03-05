@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, status, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,8 +13,8 @@ from app.config import settings
 from app.database import get_db
 from app.deps import get_current_user
 from app.models import Document, User
-from app.schemas.document import DocumentListResponse, DocumentResponse
-from app.tasks.document_tasks import classify_document_task
+from app.schemas.document import DocumentListResponse, DocumentResponse, SummaryResponse
+from app.tasks.document_tasks import classify_document_task, summarize_document_task
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -95,6 +95,7 @@ async def upload_document(
         size_bytes=doc.size_bytes,
         created_at=doc.created_at,
         classification=doc.classification,
+        summary=doc.summary,
     )
 
 
@@ -117,6 +118,7 @@ async def list_documents(
                 size_bytes=d.size_bytes,
                 created_at=d.created_at,
                 classification=d.classification,
+                summary=d.summary,
             )
             for d in docs
         ]
@@ -143,6 +145,34 @@ async def get_document(
         size_bytes=doc.size_bytes,
         created_at=doc.created_at,
         classification=doc.classification,
+        summary=doc.summary,
+    )
+
+
+@router.post("/{document_id}/summary", response_model=SummaryResponse)
+async def get_or_create_summary(
+    document_id: uuid.UUID,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> SummaryResponse:
+    """
+    Get the document summary. If it already exists, return it (200).
+    Otherwise enqueue a task to generate it and return status pending (202).
+    """
+    result = await db.execute(
+        select(Document).where(Document.id == document_id, Document.user_id == current_user.id)
+    )
+    doc = result.scalar_one_or_none()
+    if doc is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    if doc.summary is not None and doc.summary.strip():
+        return SummaryResponse(summary=doc.summary, status="ready")
+
+    summarize_document_task.delay(str(doc.id))
+    return JSONResponse(
+        status_code=status.HTTP_202_ACCEPTED,
+        content=SummaryResponse(summary=None, status="pending").model_dump(),
     )
 
 

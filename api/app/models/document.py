@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -37,6 +37,8 @@ class Document(Base):
     )
     # LLM classification into one of DOCUMENT_CATEGORIES (set by Celery task)
     classification: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # LLM-generated summary (set by Celery task)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     def __repr__(self) -> str:
         return f"<Document id={self.id!r} user_id={self.user_id!r} filename={self.filename!r}>"

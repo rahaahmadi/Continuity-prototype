@@ -15,8 +15,16 @@ class DocumentResponse(BaseModel):
     size_bytes: int
     created_at: datetime
     classification: str | None = None
+    summary: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class SummaryResponse(BaseModel):
+    """Response for POST /documents/{id}/summary."""
+
+    summary: str | None = None
+    status: str  # "ready" | "pending"
 
 
 class DocumentListResponse(BaseModel):
