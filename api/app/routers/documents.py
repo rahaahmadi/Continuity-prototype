@@ -96,6 +96,7 @@ async def upload_document(
         created_at=doc.created_at,
         classification=doc.classification,
         summary=doc.summary,
+        summary_status=doc.summary_status,
     )
 
 
@@ -119,6 +120,7 @@ async def list_documents(
                 created_at=d.created_at,
                 classification=d.classification,
                 summary=d.summary,
+                summary_status=d.summary_status,
             )
             for d in docs
         ]
@@ -146,6 +148,7 @@ async def get_document(
         created_at=doc.created_at,
         classification=doc.classification,
         summary=doc.summary,
+        summary_status=doc.summary_status,
     )
 
 
@@ -169,6 +172,15 @@ async def get_or_create_summary(
     if doc.summary is not None and doc.summary.strip():
         return SummaryResponse(summary=doc.summary, status="ready")
 
+    if doc.summary_status == "pending":
+        return JSONResponse(
+            status_code=status.HTTP_202_ACCEPTED,
+            content=SummaryResponse(summary=None, status="pending").model_dump(),
+        )
+
+    # none or failed: allow enqueue (or re-enqueue)
+    doc.summary_status = "pending"
+    await db.commit()
     summarize_document_task.delay(str(doc.id))
     return JSONResponse(
         status_code=status.HTTP_202_ACCEPTED,

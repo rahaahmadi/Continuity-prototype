@@ -71,6 +71,7 @@ def summarize_document_task(self, document_id: str) -> dict:
         summary = summarize_document_text(text, filename=doc.filename)
 
         doc.summary = summary
+        doc.summary_status = "ready"
         session.commit()
         return {
             "ok": True,
@@ -79,6 +80,15 @@ def summarize_document_task(self, document_id: str) -> dict:
         }
     except Exception as e:
         session.rollback()
+        # Clear pending so user can retry after task failure
+        try:
+            res = session.execute(select(Document).where(Document.id == doc_uuid))
+            d = res.scalar_one_or_none()
+            if d is not None:
+                d.summary_status = "failed"
+                session.commit()
+        except Exception:
+            session.rollback()
         raise self.retry(exc=e, countdown=60, max_retries=3)
     finally:
         session.close()

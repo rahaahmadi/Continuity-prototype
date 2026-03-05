@@ -39,6 +39,10 @@ class Document(Base):
     classification: Mapped[str | None] = mapped_column(String(128), nullable=True)
     # LLM-generated summary (set by Celery task)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Summary state: none | pending | ready | failed
+    summary_status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="none", server_default="none"
+    )
 
     def __repr__(self) -> str:
         return f"<Document id={self.id!r} user_id={self.user_id!r} filename={self.filename!r}>"

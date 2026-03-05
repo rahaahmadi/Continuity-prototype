@@ -16,6 +16,7 @@ class DocumentResponse(BaseModel):
     created_at: datetime
     classification: str | None = None
     summary: str | None = None
+    summary_status: str = "none"  # none | pending | ready | failed
 
     model_config = {"from_attributes": True}
 
