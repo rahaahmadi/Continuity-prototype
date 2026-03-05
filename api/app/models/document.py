@@ -35,6 +35,8 @@ class Document(Base):
         server_default=func.now(),
         nullable=False,
     )
+    # LLM classification into one of DOCUMENT_CATEGORIES (set by Celery task)
+    classification: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
     def __repr__(self) -> str:
         return f"<Document id={self.id!r} user_id={self.user_id!r} filename={self.filename!r}>"
