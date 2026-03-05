@@ -29,5 +29,19 @@ class Settings(BaseSettings):
     # Document uploads (directory on server; created if missing)
     upload_dir: str = "./uploads"
 
+    # Redis (for Celery broker and result backend)
+    redis_url: str = "redis://localhost:6379/0"
+
+    # Celery
+    celery_task_serializer: str = "json"
+    celery_result_serializer: str = "json"
+
+    # LLM for document classification (e.g. OpenAI; set OPENAI_API_KEY)
+    openai_api_key: str | None = None
+    openai_model: str = "gpt-4o-mini"
+
+    # Sync DB URL for Celery workers (same as database_url but sync driver)
+    database_url_sync: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/continuity"
+
 
 settings = Settings()
