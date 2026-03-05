@@ -85,7 +85,7 @@ async def upload_document(
         size_bytes=size,
     )
     db.add(doc)
-    await db.flush()
+    await db.commit()
     await db.refresh(doc)
     classify_document_task.delay(str(doc.id))
     return DocumentResponse(
