@@ -1,37 +1,40 @@
-"""Extract text from uploaded document files for classification."""
+"""Extract text from uploaded document files using LangChain document loaders."""
 
 from pathlib import Path
 
-from pypdf import PdfReader
+from langchain_community.document_loaders import CSVLoader, PyPDFLoader, TextLoader
 
 
 def extract_text_from_file(file_path: str | Path, content_type: str = "") -> str:
     """
-    Extract plain text from a stored document file.
-    Supports PDF and plain text. Returns empty string if format is unsupported or extraction fails.
+    Extract plain text from a stored document file using LangChain loaders.
+    Supports PDF, text, CSV. Returns empty string if format is unsupported or extraction fails.
     """
     path = Path(file_path)
     if not path.is_file():
         return ""
 
+    path_str = str(path.resolve())
+    suffix = path.suffix.lower()
+
     try:
-        suffix = path.suffix.lower()
         if suffix == ".pdf" or (content_type and "pdf" in content_type):
-            reader = PdfReader(path)
-            parts = []
-            for page in reader.pages:
-                try:
-                    text = page.extract_text()
-                    if text:
-                        parts.append(text)
-                except Exception:
-                    continue
-            return "\n".join(parts) if parts else ""
-        if suffix in (".txt", ".text", ".md", ".markdown", ".csv", ".log"):
-            return path.read_text(encoding="utf-8", errors="replace")
-        # Fallback: try reading as text (e.g. .docx would need python-docx)
-        if "text/" in (content_type or "") or "json" in (content_type or ""):
-            return path.read_text(encoding="utf-8", errors="replace")
+            loader = PyPDFLoader(path_str)
+            docs = loader.load()
+            return "\n".join(d.page_content for d in docs if d.page_content.strip()).strip()
+
+        if suffix == ".csv":
+            loader = CSVLoader(file_path=path_str, encoding="utf-8")
+            docs = loader.load()
+            return "\n".join(d.page_content for d in docs if d.page_content.strip()).strip()
+
+        if suffix in (".txt", ".text", ".md", ".markdown", ".log") or (
+            content_type and ("text/" in content_type or "json" in content_type)
+        ):
+            loader = TextLoader(path_str, encoding="utf-8", autodetect_encoding=True)
+            docs = loader.load()
+            return "\n".join(d.page_content for d in docs if d.page_content.strip()).strip()
+
         return ""
     except Exception:
         return ""
