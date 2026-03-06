@@ -10,9 +10,9 @@ SUMMARY_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are a concise summarizer for business documents. "
-            "Summarize the following document content in clear, informative paragraphs. "
-            "Focus on key facts, figures, and decisions. Keep the summary under 500 words.",
+            "You are an expert business document summarizer. "
+            "Write a clear and concise summary of the document. "
+            "Focus on the most important facts, figures, entities, obligations, and decisions. Keep the summary under 250 words.",
         ),
         ("human", "Document: {filename}\n\nContent:\n{content}"),
     ]
