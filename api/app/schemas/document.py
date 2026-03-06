@@ -17,6 +17,8 @@ class DocumentResponse(BaseModel):
     classification: str | None = None
     summary: str | None = None
     summary_status: str = "none"  # none | pending | ready | failed
+    insights: dict | None = None  # structured M&A insights (entities, financial_values, etc.)
+    insights_status: str = "none"  # none | pending | ready | failed
 
     model_config = {"from_attributes": True}
 

@@ -11,6 +11,7 @@ from app.database_sync import get_sync_session
 from app.models import Document
 from app.services.document_classifier import classify_document_text
 from app.services.document_loader import extract_text_from_file
+from app.services.document_insights import extract_document_insights
 from app.services.document_summarizer import summarize_document_text
 
 
@@ -86,6 +87,50 @@ def summarize_document_task(self, document_id: str) -> dict:
             d = res.scalar_one_or_none()
             if d is not None:
                 d.summary_status = "failed"
+                session.commit()
+        except Exception:
+            session.rollback()
+        raise self.retry(exc=e, countdown=60, max_retries=3)
+    finally:
+        session.close()
+
+
+@app.task(bind=True, name="continuity.generate_insights")
+def generate_insights_task(self, document_id: str) -> dict:
+    """
+    Extract text from the stored document, generate structured insights with the LLM, and save to the DB.
+    """
+    try:
+        doc_uuid = uuid.UUID(document_id)
+    except (ValueError, TypeError):
+        return {"ok": False, "error": "invalid_document_id", "document_id": document_id}
+
+    session = get_sync_session()
+    try:
+        result = session.execute(select(Document).where(Document.id == doc_uuid))
+        doc = result.scalar_one_or_none()
+        if doc is None:
+            return {"ok": False, "error": "document_not_found", "document_id": document_id}
+
+        full_path = Path(settings.upload_dir).resolve() / doc.stored_path
+        text = extract_text_from_file(full_path, doc.content_type)
+        insights = extract_document_insights(text, filename=doc.filename)
+
+        doc.insights = insights
+        doc.insights_status = "ready"
+        session.commit()
+        return {
+            "ok": True,
+            "document_id": document_id,
+            "insights": insights,
+        }
+    except Exception as e:
+        session.rollback()
+        try:
+            res = session.execute(select(Document).where(Document.id == doc_uuid))
+            d = res.scalar_one_or_none()
+            if d is not None:
+                d.insights_status = "failed"
                 session.commit()
         except Exception:
             session.rollback()

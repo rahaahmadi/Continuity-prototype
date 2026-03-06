@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -41,6 +41,12 @@ class Document(Base):
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Summary state: none | pending | ready | failed
     summary_status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="none", server_default="none"
+    )
+    # LLM-extracted structured insights (JSON); set by Celery task
+    insights: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    # Insights state: none | pending | ready | failed
+    insights_status: Mapped[str] = mapped_column(
         String(32), nullable=False, default="none", server_default="none"
     )
 

@@ -14,7 +14,11 @@ from app.database import get_db
 from app.deps import get_current_user
 from app.models import Document, User
 from app.schemas.document import DocumentListResponse, DocumentResponse, SummaryResponse
-from app.tasks.document_tasks import classify_document_task, summarize_document_task
+from app.tasks.document_tasks import (
+    classify_document_task,
+    generate_insights_task,
+    summarize_document_task,
+)
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -83,11 +87,13 @@ async def upload_document(
         stored_path=relative_path,
         content_type=content_type,
         size_bytes=size,
+        insights_status="pending",  # insights task enqueued below
     )
     db.add(doc)
     await db.commit()
     await db.refresh(doc)
     classify_document_task.delay(str(doc.id))
+    generate_insights_task.delay(str(doc.id))
     return DocumentResponse(
         id=doc.id,
         filename=doc.filename,
@@ -97,6 +103,8 @@ async def upload_document(
         classification=doc.classification,
         summary=doc.summary,
         summary_status=doc.summary_status,
+        insights=doc.insights,
+        insights_status=doc.insights_status,
     )
 
 
@@ -121,6 +129,8 @@ async def list_documents(
                 classification=d.classification,
                 summary=d.summary,
                 summary_status=d.summary_status,
+                insights=d.insights,
+                insights_status=d.insights_status,
             )
             for d in docs
         ]
@@ -149,6 +159,8 @@ async def get_document(
         classification=doc.classification,
         summary=doc.summary,
         summary_status=doc.summary_status,
+        insights=doc.insights,
+        insights_status=doc.insights_status,
     )
 
 
