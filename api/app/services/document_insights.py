@@ -1,32 +1,36 @@
 """Extract structured M&A due diligence insights from documents using an LLM."""
 
-import json
-import re
-
-from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+from pydantic import BaseModel, Field
 
 from app.config import settings
+
+
+class DocumentInsights(BaseModel):
+    """Structured insights extracted from a document."""
+
+    entities: list[str] = Field(default_factory=list, description="Named entities")
+    financial_values: list[str] = Field(default_factory=list, description="Financial figures in 'key: value' format describing what the number represents. Do not return numbers without context.")
+    important_dates: list[str] = Field(default_factory=list, description="Important dates in 'key: value' format describing the meaning of the date.")
+    contracts_or_relationships: list[str] = Field(
+        default_factory=list, description="Contracts or business relationships"
+    )
+    operational_details: list[str] = Field(default_factory=list, description="Operational details")
+    risks: list[str] = Field(default_factory=list, description="Risks identified")
+    other: list[str] = Field(default_factory=list, description="Other relevant facts")
+
 
 INSIGHTS_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
-            "You are an expert M&A due diligence analyst extracting structured insights "
+            "You are an expert due diligence analyst extracting structured insights "
             "from business documents.\n\n"
             "Extract key information relevant for business sale due diligence.\n"
-            "Return ONLY valid JSON.\n\n"
-            "{\n"
-            '  "entities": [string],\n'
-            '  "financial_values": [string],\n'
-            '  "important_dates": [string],\n'
-            '  "contracts_or_relationships": [string],\n'
-            '  "operational_details": [string],\n'
-            '  "risks": [string],\n'
-            '  "notes": [string]\n'
-            "}\n\n"
-            "Only extract information explicitly present in the document.",
+            "Only extract information explicitly present in the document.\n"
+            "Do not infer or guess missing details.\n"
+            "If a field is not present, return an empty list.\n",
         ),
         ("human", "Document: {filename}\n\nContent:\n{content}"),
     ]
@@ -39,29 +43,8 @@ DEFAULT_INSIGHTS = {
     "contracts_or_relationships": [],
     "operational_details": [],
     "risks": [],
-    "notes": [],
+    "other": [],
 }
-
-
-def _parse_insights_json(raw: str) -> dict:
-    """Parse JSON from LLM output, optionally stripping markdown code blocks."""
-    text = (raw or "").strip()
-    # Remove optional markdown code fence
-    match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text)
-    if match:
-        text = match.group(1).strip()
-    try:
-        data = json.loads(text)
-        if not isinstance(data, dict):
-            return DEFAULT_INSIGHTS.copy()
-        # Ensure all keys exist and are lists of strings
-        result = DEFAULT_INSIGHTS.copy()
-        for key in result:
-            if key in data and isinstance(data[key], list):
-                result[key] = [str(x) for x in data[key]]
-        return result
-    except (json.JSONDecodeError, TypeError):
-        return DEFAULT_INSIGHTS.copy()
 
 
 def extract_document_insights(text: str, filename: str = "") -> dict:
@@ -82,16 +65,17 @@ def extract_document_insights(text: str, filename: str = "") -> dict:
     llm = ChatOpenAI(
         model=settings.openai_model,
         api_key=settings.openai_api_key,
-        temperature=0.2,
+        temperature=0,
     )
-    chain = INSIGHTS_PROMPT | llm | StrOutputParser()
+    structured_llm = llm.with_structured_output(DocumentInsights)
+    chain = INSIGHTS_PROMPT | structured_llm
     try:
-        result = chain.invoke(
+        result: DocumentInsights = chain.invoke(
             {
                 "filename": filename or "unknown",
                 "content": content,
             }
         )
-        return _parse_insights_json(result or "")
+        return result.model_dump()
     except Exception:
         return DEFAULT_INSIGHTS.copy()
