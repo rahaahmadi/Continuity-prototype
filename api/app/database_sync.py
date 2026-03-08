@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import settings
 from app.database import Base
-from app.models import Document, User  # noqa: F401 - register models
+from app.models import BusinessOverview, Document, User  # noqa: F401 - register models
 
 sync_engine = create_engine(
     settings.database_url_sync,

@@ -8,11 +8,16 @@ from sqlalchemy import select
 from app.celery_app import app
 from app.config import settings
 from app.database_sync import get_sync_session
-from app.models import Document
+from app.models import BusinessOverview, Document
 from app.services.document_classifier import classify_document_text
 from app.services.document_loader import extract_text_from_file
 from app.services.document_insights import extract_document_insights
 from app.services.document_summarizer import summarize_document_text
+from app.services.business_overview import (
+    compute_documents_snapshot,
+    generate_business_overview_narrative,
+    get_insights_context_for_user,
+)
 
 
 @app.task(bind=True, name="continuity.classify_document")
@@ -131,6 +136,58 @@ def generate_insights_task(self, document_id: str) -> dict:
             d = res.scalar_one_or_none()
             if d is not None:
                 d.insights_status = "failed"
+                session.commit()
+        except Exception:
+            session.rollback()
+        raise self.retry(exc=e, countdown=60, max_retries=3)
+    finally:
+        session.close()
+
+
+@app.task(bind=True, name="continuity.generate_business_overview")
+def generate_business_overview_task(self, user_id: str) -> dict:
+    """
+    For the given user, gather all document insights and classifications,
+    generate a narrative business overview with the LLM, and save it to BusinessOverview.
+    """
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except (ValueError, TypeError):
+        return {"ok": False, "error": "invalid_user_id", "user_id": user_id}
+
+    session = get_sync_session()
+    try:
+        context = get_insights_context_for_user(session, user_uuid)
+        snapshot = compute_documents_snapshot(context)
+        narrative = generate_business_overview_narrative(context)
+
+        result = session.execute(
+            select(BusinessOverview).where(BusinessOverview.user_id == user_uuid)
+        )
+        overview = result.scalar_one_or_none()
+        if overview is None:
+            overview = BusinessOverview(user_id=user_uuid)
+            session.add(overview)
+
+        overview.content = narrative
+        overview.status = "ready"
+        overview.documents_snapshot = snapshot
+        session.commit()
+        return {
+            "ok": True,
+            "user_id": user_id,
+            "status": "ready",
+            "documents_snapshot": snapshot,
+        }
+    except Exception as e:
+        session.rollback()
+        try:
+            res = session.execute(
+                select(BusinessOverview).where(BusinessOverview.user_id == user_uuid)
+            )
+            ob = res.scalar_one_or_none()
+            if ob is not None:
+                ob.status = "failed"
                 session.commit()
         except Exception:
             session.rollback()
