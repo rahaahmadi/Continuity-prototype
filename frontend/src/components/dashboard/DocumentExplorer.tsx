@@ -1,4 +1,3 @@
-import { FileText } from "lucide-react";
 import { DOCUMENT_LABELS, labelToCamelCase } from "@/constants/documentLabels";
 import { cn } from "@/lib/utils";
 
@@ -26,9 +25,8 @@ export default function DocumentExplorer({
       )}
     >
       <div className="p-4 border-b border-border flex items-center justify-between gap-2">
-        <h3 className="font-semibold text-foreground text-sm flex items-center gap-2 min-w-0">
-          <FileText className="h-4 w-4 text-accent shrink-0" />
-          <span className="truncate">Categories</span>
+        <h3 className="font-semibold text-foreground text-sm min-w-0">
+          <span className="truncate">Explorer</span>
         </h3>
         {headerAction}
       </div>

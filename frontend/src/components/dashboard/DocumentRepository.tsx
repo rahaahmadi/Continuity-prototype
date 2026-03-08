@@ -282,11 +282,11 @@ export default function DocumentRepository() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-destructive hover:text-destructive"
-                                onClick={() => handleDelete(doc)}
-                                aria-label="Delete"
+                                className="h-8 w-8"
+                                onClick={() => handleSummary(doc)}
+                                aria-label="Summary"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <FileText className="h-4 w-4" />
                               </Button>
                               <Button
                                 variant="ghost"
@@ -300,11 +300,11 @@ export default function DocumentRepository() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8"
-                                onClick={() => handleSummary(doc)}
-                                aria-label="Summary"
+                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                onClick={() => handleDelete(doc)}
+                                aria-label="Delete"
                               >
-                                <FileText className="h-4 w-4" />
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </div>
                           </TableCell>

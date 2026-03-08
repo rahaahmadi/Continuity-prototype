@@ -58,10 +58,11 @@ export default function DocumentSummarySidebar({
         className,
       )}
     >
-      <div className="flex items-center justify-between gap-2 p-4 border-b border-border shrink-0">
-        <h3 className="font-semibold text-foreground text-sm truncate flex-1 min-w-0">
-          {documentName ?? "Summary"}
-        </h3>
+      {/* Header: SUMMARY + close button */}
+      <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border shrink-0">
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          SUMMARY
+        </span>
         <Button
           variant="ghost"
           size="icon"
@@ -71,6 +72,12 @@ export default function DocumentSummarySidebar({
         >
           <X className="h-4 w-4" />
         </Button>
+      </div>
+      {/* Document name */}
+      <div className="px-4 py-3 border-b border-border shrink-0">
+        <h3 className="font-semibold text-foreground text-sm truncate">
+          {documentName ?? "Document"}
+        </h3>
       </div>
       <ScrollArea className="flex-1 min-h-0">
         <div className="p-4 prose prose-sm dark:prose-invert max-w-none">
