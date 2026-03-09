@@ -87,11 +87,14 @@ BUSINESS_OVERVIEW_PROMPT = ChatPromptTemplate.from_messages([
         "You will receive structured insights and document classifications extracted from multiple "
         "company documents. Your task is to synthesize this information into a clear, coherent "
         "narrative overview of the business.\n\n"
-        "Requirements:\n"
+        "Output format:\n"
         "- Write concise paragraphs in professional prose. (not bullet points, not JSON)\n"
-        "- Organize the narrative naturally around themes such as the company's operations, "
-        "financial profile, customers and suppliers, products or services, workforce, and "
-        "any notable risks or dependencies when supported by the information.\n"
+        "- Respond **strictly in GitHub-flavored Markdown**.\n"
+        "- Use additional headings (##, ###) to organize sections such as operations, financial profile, "
+        "customers and suppliers, products or services, workforce, and notable risks or dependencies when "
+        "supported by the information.\n"
+        "- Use bullet lists or tables where they improve readability, while keeping the tone professional.\n\n"
+        "Content requirements:\n"
         "- If the same fact appears in multiple documents, mention it only once.\n"
         "- Use only the information provided; do not invent or infer missing facts.\n"
         "- If certain aspects of the business are not described in the inputs, simply omit them.\n"
@@ -100,7 +103,7 @@ BUSINESS_OVERVIEW_PROMPT = ChatPromptTemplate.from_messages([
     (
         "human",
         "Document insights and classifications:\n\n{context}\n\n"
-        "Write a narrative business overview (several paragraphs) based on the above.",
+        "Write a narrative business overview in Markdown format based on the above.",
     ),
 ])
 
@@ -108,7 +111,7 @@ BUSINESS_OVERVIEW_PROMPT = ChatPromptTemplate.from_messages([
 def generate_business_overview_narrative(context: list[dict]) -> str:
     """
     Use the configured LLM to turn (insights + classification) per document into
-    a single narrative business overview. Returns plain text paragraphs.
+    a single narrative business overview. Returns a Markdown-formatted string.
     """
     if not context:
         return (
