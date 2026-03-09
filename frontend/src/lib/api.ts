@@ -94,6 +94,11 @@ export type SummaryResponse = {
   status: "ready" | "pending";
 };
 
+export type BusinessOverviewResponse = {
+  content: string | null;
+  status: "none" | "pending" | "ready" | "failed";
+};
+
 export async function listDocuments(token: string): Promise<{ documents: DocumentResponse[] }> {
   const res = await fetch(`${getApiUrl()}/api/documents`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -121,6 +126,14 @@ export async function getDocumentSummary(
     headers: { Authorization: `Bearer ${token}` },
   });
   return handleResponse<SummaryResponse>(res);
+}
+
+export async function getBusinessOverview(token: string): Promise<BusinessOverviewResponse> {
+  const res = await fetch(`${getApiUrl()}/api/business-overview`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return handleResponse<BusinessOverviewResponse>(res);
 }
 
 export async function deleteDocument(token: string, documentId: string): Promise<void> {
