@@ -1,10 +1,14 @@
+import { useState } from "react";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
+import SettingsModal from "@/components/dashboard/SettingsModal";
 import QAChat from "@/components/report/QAChat";
 
 const QA = () => {
+  const [settingsOpen, setSettingsOpen] = useState(false);
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      <DashboardSidebar />
+      <DashboardSidebar onOpenSettings={() => setSettingsOpen(true)} />
+      <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
       <div className="flex-1 flex flex-col overflow-hidden">
         <div className="border-b border-border bg-card px-8 py-6">
           <h1 className="text-2xl font-serif font-bold text-foreground">Business Q&amp;A</h1>

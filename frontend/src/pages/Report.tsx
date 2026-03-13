@@ -1,5 +1,6 @@
 import { useState } from "react";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
+import SettingsModal from "@/components/dashboard/SettingsModal";
 import { Button } from "@/components/ui/button";
 import { Share2, Download, MessageSquare, TrendingUp, Users, DollarSign, Building2, Shield, Lock, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,7 @@ const tierLabels: Record<number, { label: string; color: string }> = {
 
 const Report = () => {
   const { token } = useAuth();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [overviewOpen, setOverviewOpen] = useState(false);
   const [overviewStatus, setOverviewStatus] = useState<BusinessOverviewResponse["status"] | "loading">(
@@ -60,7 +62,8 @@ const Report = () => {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      <DashboardSidebar />
+      <DashboardSidebar onOpenSettings={() => setSettingsOpen(true)} />
+      <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
       <div className="flex-1 overflow-y-auto">
         {/* Header */}
         <div className="border-b border-border bg-card px-8 py-6">

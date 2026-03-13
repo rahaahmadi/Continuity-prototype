@@ -74,6 +74,24 @@ export async function getMe(token: string): Promise<UserResponse> {
   return handleResponse<UserResponse>(res);
 }
 
+export async function deleteAccount(token: string): Promise<void> {
+  const res = await fetch(`${getApiUrl()}/api/auth/account`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok && res.status !== 401) {
+    const text = await res.text();
+    let detail = res.statusText;
+    try {
+      const data = text ? JSON.parse(text) : {};
+      detail = data.detail ?? detail;
+    } catch {
+      if (text) detail = text;
+    }
+    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+  }
+}
+
 // --- Documents ---
 
 export type DocumentResponse = {

@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Eye, Shield, Lock, Share2, Copy, Mail } from "lucide-react";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import DocumentChecklist from "@/components/dashboard/DocumentChecklist";
 import DocumentRepository from "@/components/dashboard/DocumentRepository";
 import ChatInterface from "@/components/dashboard/ChatInterface";
+import SettingsModal from "@/components/dashboard/SettingsModal";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -31,10 +33,12 @@ const shareTiers = [
 const Dashboard = () => {
   const location = useLocation();
   const tab = new URLSearchParams(location.search).get("tab") ?? "prepare";
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      <DashboardSidebar />
+      <DashboardSidebar onOpenSettings={() => setSettingsOpen(true)} />
+      <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
 
       {tab === "prepare" && (
         <div className="flex flex-1 h-full flex-col overflow-hidden">

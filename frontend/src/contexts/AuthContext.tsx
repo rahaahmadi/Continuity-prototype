@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import type { UserResponse } from "@/lib/api";
-import { getMe, login as apiLogin, logout as apiLogout, register as apiRegister } from "@/lib/api";
+import { deleteAccount as apiDeleteAccount, getMe, login as apiLogin, logout as apiLogout, register as apiRegister } from "@/lib/api";
 
 const TOKEN_KEY = "continuity_access_token";
 const USER_KEY = "continuity_user";
@@ -35,6 +35,7 @@ type AuthContextValue = AuthState & {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -89,6 +90,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState(s => ({ ...s, token: null, user: null }));
   }, [state.token]);
 
+  const deleteAccount = useCallback(async () => {
+    const token = state.token;
+    if (!token) return;
+    await apiDeleteAccount(token);
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    setState(s => ({ ...s, token: null, user: null }));
+  }, [state.token]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       ...state,
@@ -96,8 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
+      deleteAccount,
     }),
-    [state, login, register, logout],
+    [state, login, register, logout, deleteAccount],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
