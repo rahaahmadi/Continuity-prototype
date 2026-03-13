@@ -1,11 +1,14 @@
-"""Auth routes: register, login, me, logout."""
+"""Auth routes: register, login, me, logout, delete account."""
 
+import shutil
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.deps import get_current_user
 from app.models import User
@@ -98,3 +101,23 @@ async def logout(
     # JWT is stateless; invalidation is client-side. This endpoint allows the client
     # to perform logout in a consistent way (e.g. call API then clear token).
     pass
+
+
+@router.delete("/account", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_account(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> None:
+    """Permanently delete the current user's account and all associated data.
+
+    Removes the user's upload directory (document files on disk), then deletes the user
+    from the database. Documents and business overviews are removed by foreign key CASCADE.
+    """
+    user_id = current_user.id
+    # Delete user's upload directory (all stored document files)
+    user_upload_dir = Path(settings.upload_dir).resolve() / str(user_id)
+    if user_upload_dir.exists():
+        shutil.rmtree(user_upload_dir, ignore_errors=True)
+    # Delete user; CASCADE removes documents and business_overviews rows
+    await db.delete(current_user)
+    await db.commit()
