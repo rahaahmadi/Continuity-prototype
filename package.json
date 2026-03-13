@@ -9,5 +9,9 @@
   "scripts": {
     "dev:frontend": "npm run dev -w frontend",
     "build:frontend": "npm run build -w frontend"
+  },
+  "dependencies": {
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   }
 }
