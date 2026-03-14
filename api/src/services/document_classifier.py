@@ -1,10 +1,10 @@
 """Classify document content into predefined categories using LangChain and an LLM."""
 
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 from src.constants import DOCUMENT_CATEGORIES
+from src.prompt_loader import get_prompt
 
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 
@@ -37,18 +37,7 @@ def classify_document_text(
     if not content:
         content = "(No extractable text; using filename only.)"
 
-    prompt = ChatPromptTemplate.from_messages(
-        [
-            (
-                "system",
-                "You are a document classifier for a business data room. "
-                "Classify the given document content into exactly one of the following categories. "
-                "Reply with only the category name, nothing else.\n\n"
-                "Categories:\n{categories}",
-            ),
-            ("human", "Filename: {filename}\n\nContent (excerpt):\n{content}"),
-        ]
-    )
+    prompt = get_prompt("document_classifier")
     llm = ChatOpenAI(
         model=openai_model,
         api_key=openai_api_key,

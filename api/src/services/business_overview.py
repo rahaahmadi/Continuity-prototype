@@ -4,8 +4,9 @@ import hashlib
 import json
 from typing import Any
 
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+
+from src.prompt_loader import get_prompt
 
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 
@@ -52,34 +53,6 @@ def build_context_from_documents(docs: list[Any]) -> list[dict]:
     return out
 
 
-BUSINESS_OVERVIEW_PROMPT = ChatPromptTemplate.from_messages([
-    (
-        "system",
-        "You are an expert business analyst preparing a business overview for M&A due diligence. "
-        "You will receive structured insights and document classifications extracted from multiple "
-        "company documents. Your task is to synthesize this information into a clear, coherent "
-        "narrative overview of the business.\n\n"
-        "Output format:\n"
-        "- Write concise paragraphs in professional prose. (not bullet points, not JSON)\n"
-        "- Respond **strictly in GitHub-flavored Markdown**.\n"
-        "- Use additional headings (##, ###) to organize sections such as operations, financial profile, "
-        "customers and suppliers, products or services, workforce, and notable risks or dependencies when "
-        "supported by the information.\n"
-        "- Use bullet lists or tables where they improve readability, while keeping the tone professional.\n\n"
-        "Content requirements:\n"
-        "- If the same fact appears in multiple documents, mention it only once.\n"
-        "- Use only the information provided; do not invent or infer missing facts.\n"
-        "- If certain aspects of the business are not described in the inputs, simply omit them.\n"
-        "- Aim for clarity, neutrality, and completeness suitable for a due diligence summary."
-    ),
-    (
-        "human",
-        "Document insights and classifications:\n\n{context}\n\n"
-        "Write a narrative business overview in Markdown format based on the above.",
-    ),
-])
-
-
 def generate_business_overview_narrative(
     context: list[dict],
     *,
@@ -120,6 +93,6 @@ def generate_business_overview_narrative(
         api_key=openai_api_key,
         temperature=0,
     )
-    chain = BUSINESS_OVERVIEW_PROMPT | llm
+    chain = get_prompt("business_overview") | llm
     response = chain.invoke({"context": context_str})
     return (response.content or "").strip()

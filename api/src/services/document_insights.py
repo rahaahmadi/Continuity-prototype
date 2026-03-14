@@ -1,8 +1,9 @@
 """Extract structured M&A due diligence insights from documents using an LLM."""
 
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
+
+from src.prompt_loader import get_prompt
 
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 
@@ -19,22 +20,6 @@ class DocumentInsights(BaseModel):
     operational_details: list[str] = Field(default_factory=list, description="Operational details")
     risks: list[str] = Field(default_factory=list, description="Risks identified")
     other: list[str] = Field(default_factory=list, description="Other relevant facts")
-
-
-INSIGHTS_PROMPT = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            "You are an expert due diligence analyst extracting structured insights "
-            "from business documents.\n\n"
-            "Extract key information relevant for business sale due diligence.\n"
-            "Only extract information explicitly present in the document.\n"
-            "Do not infer or guess missing details.\n"
-            "If a field is not present, return an empty list.\n",
-        ),
-        ("human", "Document: {filename}\n\nContent:\n{content}"),
-    ]
-)
 
 DEFAULT_INSIGHTS = {
     "entities": [],
@@ -74,7 +59,7 @@ def extract_document_insights(
         temperature=0,
     )
     structured_llm = llm.with_structured_output(DocumentInsights)
-    chain = INSIGHTS_PROMPT | structured_llm
+    chain = get_prompt("document_insights") | structured_llm
     try:
         result: DocumentInsights = chain.invoke(
             {

@@ -16,6 +16,7 @@ pydantic-settings
 
 # Utils
 python-multipart
+pyyaml
 
 # Celery & Redis
 celery[redis]

@@ -1,22 +1,11 @@
 """Generate document summaries using LangChain and an LLM."""
 
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
-DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
+from src.prompt_loader import get_prompt
 
-SUMMARY_PROMPT = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            "You are an expert business document summarizer. "
-            "Write a clear and concise summary of the document. "
-            "Focus on the most important facts, figures, entities, obligations, and decisions. Keep the summary under 250 words.",
-        ),
-        ("human", "Document: {filename}\n\nContent:\n{content}"),
-    ]
-)
+DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 
 
 def summarize_document_text(
@@ -45,7 +34,7 @@ def summarize_document_text(
         api_key=openai_api_key,
         temperature=0.2,
     )
-    chain = SUMMARY_PROMPT | llm | StrOutputParser()
+    chain = get_prompt("document_summarizer") | llm | StrOutputParser()
     try:
         result = chain.invoke(
             {

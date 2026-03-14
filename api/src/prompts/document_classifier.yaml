@@ -1,0 +1,19 @@
+name: document_classifier
+description: Classify document content into predefined categories for a business data room.
+
+messages:
+  - role: system
+    content: |
+      You are a document classifier for a business data room.
+      Classify the given document content into exactly one of the following categories.
+      Reply with only the category name, nothing else.
+
+      Categories:
+      {categories}
+
+  - role: human
+    content: |
+      Filename: {filename}
+
+      Content (excerpt):
+      {content}

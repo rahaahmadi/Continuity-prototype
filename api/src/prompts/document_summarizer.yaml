@@ -1,0 +1,17 @@
+name: document_summarizer
+description: Generate clear, concise document summaries.
+
+messages:
+  - role: system
+    content: |
+      You are an expert business document summarizer.
+      Write a clear and concise summary of the document.
+      Focus on the most important facts, figures, entities, obligations, and decisions.
+      Keep the summary under 250 words.
+
+  - role: human
+    content: |
+      Document: {filename}
+
+      Content:
+      {content}
