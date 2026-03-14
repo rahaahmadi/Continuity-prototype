@@ -1,14 +1,3 @@
-"""Document classification categories used by the LLM classifier."""
+"""Re-export domain constants for app use (e.g. schemas, model docs)."""
 
-DOCUMENT_CATEGORIES = [
-    "CORPORATE STRUCTURE & GOVERNANCE",
-    "FINANCIAL INFORMATION",
-    "CUSTOMERS & SALES",
-    "PRODUCTS & SERVICES",
-    "OPERATIONS & FACILITIES",
-    "HUMAN RESOURCES & EMPLOYEES",
-    "LEGAL & COMPLIANCE",
-    "SUPPLIERS & VENDORS",
-    "COMPETITIVE & MARKET POSITION",
-    "GROWTH & STRATEGY",
-]
+from src.constants import DOCUMENT_CATEGORIES  # noqa: F401

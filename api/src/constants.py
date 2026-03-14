@@ -1,0 +1,14 @@
+"""Document classification categories used by the LLM classifier (domain constant)."""
+
+DOCUMENT_CATEGORIES = [
+    "CORPORATE STRUCTURE & GOVERNANCE",
+    "FINANCIAL INFORMATION",
+    "CUSTOMERS & SALES",
+    "PRODUCTS & SERVICES",
+    "OPERATIONS & FACILITIES",
+    "HUMAN RESOURCES & EMPLOYEES",
+    "LEGAL & COMPLIANCE",
+    "SUPPLIERS & VENDORS",
+    "COMPETITIVE & MARKET POSITION",
+    "GROWTH & STRATEGY",
+]

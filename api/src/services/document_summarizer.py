@@ -4,7 +4,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
-from app.config import settings
+DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 
 SUMMARY_PROMPT = ChatPromptTemplate.from_messages(
     [
@@ -19,15 +19,20 @@ SUMMARY_PROMPT = ChatPromptTemplate.from_messages(
 )
 
 
-def summarize_document_text(text: str, filename: str = "") -> str | None:
+def summarize_document_text(
+    text: str,
+    filename: str = "",
+    *,
+    openai_api_key: str | None = None,
+    openai_model: str = DEFAULT_OPENAI_MODEL,
+) -> str | None:
     """
-    Summarize document text using the configured LLM.
+    Summarize document text using the LLM.
     Returns the summary string, or None if API key is missing or summarization fails.
     """
-    if not settings.openai_api_key:
+    if not openai_api_key:
         return None
 
-    # Truncate to avoid token limits (e.g. ~12k chars for input)
     max_chars = 12000
     content = (text or "").strip()
     if len(content) > max_chars:
@@ -36,8 +41,8 @@ def summarize_document_text(text: str, filename: str = "") -> str | None:
         content = "(No extractable text.)"
 
     llm = ChatOpenAI(
-        model=settings.openai_model,
-        api_key=settings.openai_api_key,
+        model=openai_model,
+        api_key=openai_api_key,
         temperature=0.2,
     )
     chain = SUMMARY_PROMPT | llm | StrOutputParser()

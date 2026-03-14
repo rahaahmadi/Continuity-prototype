@@ -4,7 +4,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
-from app.config import settings
+DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 
 
 class DocumentInsights(BaseModel):
@@ -47,12 +47,18 @@ DEFAULT_INSIGHTS = {
 }
 
 
-def extract_document_insights(text: str, filename: str = "") -> dict:
+def extract_document_insights(
+    text: str,
+    filename: str = "",
+    *,
+    openai_api_key: str | None = None,
+    openai_model: str = DEFAULT_OPENAI_MODEL,
+) -> dict:
     """
-    Extract structured insights from document text using the configured LLM.
+    Extract structured insights from document text using the LLM.
     Returns a dict with entities, financial_values, important_dates, etc., or default empty structure on failure.
     """
-    if not settings.openai_api_key:
+    if not openai_api_key:
         return DEFAULT_INSIGHTS.copy()
 
     max_chars = 12000
@@ -63,8 +69,8 @@ def extract_document_insights(text: str, filename: str = "") -> dict:
         content = "(No extractable text.)"
 
     llm = ChatOpenAI(
-        model=settings.openai_model,
-        api_key=settings.openai_api_key,
+        model=openai_model,
+        api_key=openai_api_key,
         temperature=0,
     )
     structured_llm = llm.with_structured_output(DocumentInsights)

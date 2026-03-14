@@ -1,6 +1,6 @@
 # Continuity API
 
-REST backend for Continuity (FastAPI + PostgreSQL). Exposes auth and (later) document upload, analysis, reports, Q&A, and interview sessions.
+REST backend for Continuity (FastAPI + PostgreSQL + Celery). Exposes auth, document upload, classification, insights, summarization, and business overview.
 
 ## Stack
 
@@ -9,10 +9,12 @@ REST backend for Continuity (FastAPI + PostgreSQL). Exposes auth and (later) doc
 - **SQLAlchemy 2** – async ORM and migrations (Alembic)
 - **JWT** – access tokens for login
 - **bcrypt** – password hashing
+- **Celery + Redis** – background tasks (classification, insights, summarization, business overview)
+- **LangChain + OpenAI** – LLM-based document processing
 
 ## Setup
 
-1. **Python 3.11+** and a running **PostgreSQL** instance.
+1. **Python 3.10+** and a running **PostgreSQL** instance.
 
 2. **Create a database** (e.g. `continuity`):
 
@@ -20,14 +22,11 @@ REST backend for Continuity (FastAPI + PostgreSQL). Exposes auth and (later) doc
    createdb continuity
    ```
 
-3. **From the `api` directory**, create a virtualenv and install deps:
+3. **From the `api` directory**, install dependencies:
 
    ```bash
    cd api
-   python -m venv .venv
-   .venv\Scripts\activate   # Windows
-   # source .venv/bin/activate  # macOS/Linux
-   pip install -r requirements.txt
+   pip install -e .   # or: pip install -r requirements.txt
    ```
 
 4. **Copy env and edit**:
@@ -37,7 +36,7 @@ REST backend for Continuity (FastAPI + PostgreSQL). Exposes auth and (later) doc
    # cp .env.example .env   # macOS/Linux
    ```
 
-   Set `DATABASE_URL` to your Postgres connection (use `postgresql+asyncpg://...`). Set a strong `SECRET_KEY` in production.
+   Set `DATABASE_URL` (use `postgresql+asyncpg://...`). Set a strong `SECRET_KEY` in production.
 
 5. **Run migrations**:
 
@@ -45,7 +44,7 @@ REST backend for Continuity (FastAPI + PostgreSQL). Exposes auth and (later) doc
    alembic upgrade head
    ```
 
-6. **Run the server**:
+6. **Run the server** (from the `api` directory only; no PYTHONPATH):
 
    ```bash
    uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -53,22 +52,11 @@ REST backend for Continuity (FastAPI + PostgreSQL). Exposes auth and (later) doc
 
    API base: `http://localhost:8000`. Docs: `http://localhost:8000/docs`.
 
-## Document classification (Celery + Redis + LangChain)
+## Celery (background tasks)
 
-After upload, each document is classified in the background into one of 10 categories (e.g. FINANCIAL INFORMATION, LEGAL & COMPLIANCE). The classifier uses LangChain and an LLM (OpenAI by default); the result is stored in the `documents.classification` column.
+1. **Run Redis** (e.g. locally): `redis-server`
 
-1. **Run Redis** (e.g. locally):
-
-   ```bash
-   redis-server
-   ```
-
-2. **Set env** in `.env`:
-
-   - `REDIS_URL=redis://localhost:6379/0`
-   - `OPENAI_API_KEY=<your-key>` (required for classification; if missing, classification stays `null`)
-   - Optionally `OPENAI_MODEL=gpt-4o-mini` (default) or another model
-   - `DATABASE_URL_SYNC=postgresql+psycopg2://postgres:postgres@localhost:5432/continuity` (sync URL for Celery workers)
+2. **Set in `.env`**: `REDIS_URL`, `OPENAI_API_KEY`, `DATABASE_URL_SYNC` (sync Postgres URL for workers).
 
 3. **Run a Celery worker** from the `api` directory:
 
@@ -76,37 +64,35 @@ After upload, each document is classified in the background into one of 10 categ
    celery -A app.celery_app worker --loglevel=info
    ```
 
-4. **Run migrations** so the `documents.classification` column exists:
+## Tests
 
-   ```bash
-   alembic upgrade head
-   ```
+From the `api` directory:
 
-Uploaded documents will get a classification asynchronously; list/get document responses include `classification` (string or null).
-
-## Auth endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/auth/register` | Register with email and password |
-| `POST` | `/api/auth/login` | Login; returns JWT and user info (for redirect to dashboard) |
-| `GET`  | `/api/auth/me`       | Current user (requires `Authorization: Bearer <token>`) |
-| `POST` | `/api/auth/logout`   | Log out (requires Bearer token); client should discard token after calling |
-
-- **Register**: body `{ "email": "user@example.com", "password": "..." }`. Password: 8–128 chars, at least one upper, one lower, one digit.
-- **Login**: same body; response includes `access_token` and `user` (id, email, etc.). Frontend can store the token and redirect to dashboard.
-- **Protected routes**: send header `Authorization: Bearer <access_token>`.
+```bash
+pip install -e ".[dev]"
+pytest          # runs unit/smoke tests (health, auth required)
+pytest -m integration   # runs integration tests (requires running Postgres)
+```
 
 ## Project layout
 
-- **app/** – FastAPI app
+All backend code lives under **api/** so you run and test from here without PYTHONPATH.
+
+- **app/** – FastAPI application
   - **config.py** – settings from env
-  - **database.py** – async engine and session
-  - **deps.py** – `get_current_user` and DB dependency
-  - **main.py** – app, CORS, router mount
-  - **models/** – SQLAlchemy models (e.g. `User`)
-  - **routers/** – route modules (e.g. `auth`)
+  - **database/** – async engine/session (`__init__.py`), sync session for Celery (`sync_db.py`)
+  - **deps.py** – `get_db`, `get_current_user`
+  - **main.py** – app, CORS, routers
+  - **models/** – SQLAlchemy models (`User`, `Document`, `BusinessOverview`)
+  - **routers/** – thin HTTP layer; delegate to services
   - **schemas/** – Pydantic request/response models
-  - **services/** – auth helpers (password hash, JWT)
+  - **services/** – auth, documents, business overview; orchestrate domain and DB
+  - **tasks/** – Celery tasks
+- **src/** – Domain (no imports from `app`)
+  - **constants.py** – e.g. document categories
+  - **services/** – document classification, insights, summarization, loader, business overview narrative
+- **tests/** – pytest (health, auth, documents, business overview)
 - **alembic/** – migrations
-- **requirements.txt** – Python dependencies
+- **requirements.txt** – Python dependencies (also in `pyproject.toml`)
+
+Domain logic in `src/` must not depend on `app`; config and persistence are passed in by services and tasks.

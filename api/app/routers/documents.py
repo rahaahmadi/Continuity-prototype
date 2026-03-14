@@ -1,44 +1,36 @@
 """Document routes: upload (POST), list/get (GET), delete (DELETE)."""
 
 import uuid
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, status, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.database import get_db
 from app.deps import get_current_user
-from app.models import Document, User
+from app.models import User
 from app.schemas.document import DocumentListResponse, DocumentResponse, SummaryResponse
-from app.tasks.document_tasks import (
-    classify_document_task,
-    generate_insights_task,
-    summarize_document_task,
-)
+from app.services import documents as document_services
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
-# Max file size (e.g. 50 MB)
-MAX_FILE_SIZE = 50 * 1024 * 1024
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
 
-def _upload_root() -> Path:
-    """Root directory for uploads; create if missing."""
-    root = Path(settings.upload_dir).resolve()
-    root.mkdir(parents=True, exist_ok=True)
-    return root
-
-
-def _user_upload_dir(user_id: uuid.UUID) -> Path:
-    """Per-user upload directory."""
-    root = _upload_root()
-    path = root / str(user_id)
-    path.mkdir(parents=True, exist_ok=True)
-    return path
+def _doc_to_response(doc) -> DocumentResponse:
+    return DocumentResponse(
+        id=doc.id,
+        filename=doc.filename,
+        content_type=doc.content_type,
+        size_bytes=doc.size_bytes,
+        created_at=doc.created_at,
+        classification=doc.classification,
+        summary=doc.summary,
+        summary_status=doc.summary_status,
+        insights=doc.insights,
+        insights_status=doc.insights_status,
+    )
 
 
 @router.post("", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
@@ -54,58 +46,28 @@ async def upload_document(
             detail="Filename is required",
         )
     content_type = file.content_type or "application/octet-stream"
+    chunks = []
     size = 0
-    user_dir = _user_upload_dir(current_user.id)
-    # Store as original_name.uuid to avoid collisions and path traversal
-    safe_name = file.filename.strip().replace("..", "")
-    stored_name = f"{safe_name}.{uuid.uuid4().hex}"
-    stored_path = user_dir / stored_name
+    while chunk := await file.read(1024 * 64):
+        size += len(chunk)
+        if size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large (max {MAX_FILE_SIZE // (1024*1024)} MB)",
+            )
+        chunks.append(chunk)
+    content = b"".join(chunks)
     try:
-        with open(stored_path, "wb") as f:
-            while chunk := await file.read(1024 * 64):
-                size += len(chunk)
-                if size > MAX_FILE_SIZE:
-                    stored_path.unlink(missing_ok=True)
-                    raise HTTPException(
-                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                        detail=f"File too large (max {MAX_FILE_SIZE // (1024*1024)} MB)",
-                    )
-                f.write(chunk)
-    except HTTPException:
-        raise
-    except OSError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to save file",
-        ) from e
-
-    # Relative path for DB: user_id/stored_name (portable across server moves)
-    relative_path = f"{current_user.id}/{stored_name}"
-    doc = Document(
-        user_id=current_user.id,
-        filename=file.filename.strip(),
-        stored_path=relative_path,
-        content_type=content_type,
-        size_bytes=size,
-        insights_status="pending",  # insights task enqueued below
-    )
-    db.add(doc)
-    await db.commit()
-    await db.refresh(doc)
-    classify_document_task.delay(str(doc.id))
-    generate_insights_task.delay(str(doc.id))
-    return DocumentResponse(
-        id=doc.id,
-        filename=doc.filename,
-        content_type=doc.content_type,
-        size_bytes=doc.size_bytes,
-        created_at=doc.created_at,
-        classification=doc.classification,
-        summary=doc.summary,
-        summary_status=doc.summary_status,
-        insights=doc.insights,
-        insights_status=doc.insights_status,
-    )
+        doc = await document_services.upload_document(
+            current_user.id,
+            file.filename.strip(),
+            content_type,
+            content,
+            db,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(e)) from e
+    return _doc_to_response(doc)
 
 
 @router.get("", response_model=DocumentListResponse)
@@ -114,27 +76,8 @@ async def list_documents(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> DocumentListResponse:
     """List all documents for the current user."""
-    result = await db.execute(
-        select(Document).where(Document.user_id == current_user.id).order_by(Document.created_at.desc())
-    )
-    docs = result.scalars().all()
-    return DocumentListResponse(
-        documents=[
-            DocumentResponse(
-                id=d.id,
-                filename=d.filename,
-                content_type=d.content_type,
-                size_bytes=d.size_bytes,
-                created_at=d.created_at,
-                classification=d.classification,
-                summary=d.summary,
-                summary_status=d.summary_status,
-                insights=d.insights,
-                insights_status=d.insights_status,
-            )
-            for d in docs
-        ]
-    )
+    docs = await document_services.list_documents(current_user.id, db)
+    return DocumentListResponse(documents=[_doc_to_response(d) for d in docs])
 
 
 @router.get("/{document_id}", response_model=DocumentResponse)
@@ -144,24 +87,10 @@ async def get_document(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> DocumentResponse:
     """Get document metadata by ID. User can only access their own documents."""
-    result = await db.execute(
-        select(Document).where(Document.id == document_id, Document.user_id == current_user.id)
-    )
-    doc = result.scalar_one_or_none()
+    doc = await document_services.get_document(document_id, current_user.id, db)
     if doc is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
-    return DocumentResponse(
-        id=doc.id,
-        filename=doc.filename,
-        content_type=doc.content_type,
-        size_bytes=doc.size_bytes,
-        created_at=doc.created_at,
-        classification=doc.classification,
-        summary=doc.summary,
-        summary_status=doc.summary_status,
-        insights=doc.insights,
-        insights_status=doc.insights_status,
-    )
+    return _doc_to_response(doc)
 
 
 @router.post("/{document_id}/summary", response_model=SummaryResponse)
@@ -169,31 +98,15 @@ async def get_or_create_summary(
     document_id: uuid.UUID,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> SummaryResponse:
-    """
-    Get the document summary. If it already exists, return it (200).
-    Otherwise enqueue a task to generate it and return status pending (202).
-    """
-    result = await db.execute(
-        select(Document).where(Document.id == document_id, Document.user_id == current_user.id)
+) -> SummaryResponse | JSONResponse:
+    """Get the document summary, or enqueue generation and return pending."""
+    summary, st = await document_services.get_or_create_summary(
+        document_id, current_user.id, db
     )
-    doc = result.scalar_one_or_none()
-    if doc is None:
+    if st == "not_found":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
-
-    if doc.summary is not None and doc.summary.strip():
-        return SummaryResponse(summary=doc.summary, status="ready")
-
-    if doc.summary_status == "pending":
-        return JSONResponse(
-            status_code=status.HTTP_202_ACCEPTED,
-            content=SummaryResponse(summary=None, status="pending").model_dump(),
-        )
-
-    # none or failed: allow enqueue (or re-enqueue)
-    doc.summary_status = "pending"
-    await db.commit()
-    summarize_document_task.delay(str(doc.id))
+    if st == "ready" and summary is not None:
+        return SummaryResponse(summary=summary, status="ready")
     return JSONResponse(
         status_code=status.HTTP_202_ACCEPTED,
         content=SummaryResponse(summary=None, status="pending").model_dump(),
@@ -207,20 +120,13 @@ async def download_document(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Download the file for a document. User can only download their own documents."""
-    result = await db.execute(
-        select(Document).where(Document.id == document_id, Document.user_id == current_user.id)
+    result = await document_services.download_document(
+        document_id, current_user.id, db
     )
-    doc = result.scalar_one_or_none()
-    if doc is None:
+    if result is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
-    full_path = Path(settings.upload_dir).resolve() / doc.stored_path
-    if not full_path.is_file():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found on server")
-    return FileResponse(
-        path=full_path,
-        filename=doc.filename,
-        media_type=doc.content_type,
-    )
+    full_path, filename, media_type = result
+    return FileResponse(path=full_path, filename=filename, media_type=media_type)
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -230,13 +136,9 @@ async def delete_document(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> None:
     """Delete a document and its file. User can only delete their own documents."""
-    result = await db.execute(
-        select(Document).where(Document.id == document_id, Document.user_id == current_user.id)
+    deleted = await document_services.delete_document(
+        document_id, current_user.id, db
     )
-    doc = result.scalar_one_or_none()
-    if doc is None:
+    if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
-    full_path = Path(settings.upload_dir).resolve() / doc.stored_path
-    full_path.unlink(missing_ok=True)
-    await db.delete(doc)
     return None

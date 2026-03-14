@@ -24,7 +24,7 @@ from app.services.auth import create_access_token, hash_password, verify_passwor
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=RegisterResponse)
+@router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     body: RegisterRequest,
     db: Annotated[AsyncSession, Depends(get_db)],

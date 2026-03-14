@@ -1,4 +1,4 @@
-"""Async SQLAlchemy engine and session management for PostgreSQL."""
+"""Database package: async and sync SQLAlchemy engine/session for PostgreSQL."""
 
 from collections.abc import AsyncGenerator
 
