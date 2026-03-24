@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import BusinessOverview, Document
+from app.models import BusinessProfile, Document
 from app.tasks.document_tasks import generate_business_overview_task
 from src.services.business_overview import (
     build_context_from_documents,
@@ -38,22 +38,29 @@ async def get_or_generate_business_overview(
     context = build_context_from_documents(docs)
     current_snapshot = compute_documents_snapshot(context)
 
-    overview_result = await db.execute(
-        select(BusinessOverview).where(BusinessOverview.user_id == user_id)
+    profile_result = await db.execute(
+        select(BusinessProfile).where(BusinessProfile.user_id == user_id)
     )
-    overview = overview_result.scalar_one_or_none()
-    if overview is not None and overview.status == "ready" and overview.documents_snapshot == current_snapshot:
-        return BusinessOverviewResult(content=overview.content, status="ready")
+    profile = profile_result.scalar_one_or_none()
+    if (
+        profile is not None
+        and profile.business_overview_status == "ready"
+        and profile.business_overview_documents_snapshot == current_snapshot
+    ):
+        return BusinessOverviewResult(
+            content=profile.business_overview_content,
+            status="ready",
+        )
 
-    if overview is not None and overview.status == "pending":
+    if profile is not None and profile.business_overview_status == "pending":
         return BusinessOverviewResult(content=None, status="pending")
 
-    if overview is None:
-        overview = BusinessOverview(user_id=user_id, status="pending")
-        db.add(overview)
+    if profile is None:
+        profile = BusinessProfile(user_id=user_id, business_overview_status="pending")
+        db.add(profile)
     else:
-        overview.status = "pending"
-        overview.content = None
+        profile.business_overview_status = "pending"
+        profile.business_overview_content = None
     await db.commit()
 
     generate_business_overview_task.delay(str(user_id))

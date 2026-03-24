@@ -26,8 +26,15 @@ async def get_or_generate(
     """
     result = await get_or_generate_business_overview(current_user.id, db)
     if result.status == "ready":
-        return BusinessOverviewResponse(content=result.content, status=result.status)
+        return BusinessOverviewResponse(
+            content=result.content,
+            status=result.status,
+        )
     return JSONResponse(
         status_code=status.HTTP_202_ACCEPTED,
-        content=BusinessOverviewResponse(content=None, status="pending").model_dump(),
+        content=BusinessOverviewResponse(
+            content=None,
+            key_insights=[],
+            status="pending",
+        ).model_dump(),
     )

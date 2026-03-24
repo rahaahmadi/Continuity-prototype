@@ -118,6 +118,6 @@ async def delete_account(
     user_upload_dir = Path(settings.upload_dir).resolve() / str(user_id)
     if user_upload_dir.exists():
         shutil.rmtree(user_upload_dir, ignore_errors=True)
-    # Delete user; CASCADE removes documents and business_overviews rows
+    # Delete user; CASCADE removes documents and business_profiles rows
     await db.delete(current_user)
     await db.commit()

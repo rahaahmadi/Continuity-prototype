@@ -10,13 +10,14 @@ from sqlalchemy.orm import Session
 from app.celery_app import app
 from app.config import settings
 from app.database.sync_db import get_sync_session
-from app.models import BusinessOverview, Document
+from app.models import BusinessProfile, Document
 from src.services.document_classifier import classify_document_text
 from src.services.document_loader import extract_text_from_file
 from src.services.document_insights import extract_document_insights
 from src.services.document_summarizer import summarize_document_text
 from src.services.business_overview import (
     compute_documents_snapshot,
+    generate_top_key_insights,
     generate_business_overview_narrative,
 )
 
@@ -191,7 +192,7 @@ def generate_insights_task(self, document_id: str) -> dict:
 def generate_business_overview_task(self, user_id: str) -> dict:
     """
     For the given user, gather all document insights and classifications,
-    generate a narrative business overview with the LLM, and save it to BusinessOverview.
+    generate a narrative business overview with the LLM, and save it to BusinessProfile.
     """
     try:
         user_uuid = uuid.UUID(user_id)
@@ -207,18 +208,17 @@ def generate_business_overview_task(self, user_id: str) -> dict:
             openai_api_key=settings.openai_api_key,
             openai_model=settings.openai_model,
         )
-
         result = session.execute(
-            select(BusinessOverview).where(BusinessOverview.user_id == user_uuid)
+            select(BusinessProfile).where(BusinessProfile.user_id == user_uuid)
         )
-        overview = result.scalar_one_or_none()
-        if overview is None:
-            overview = BusinessOverview(user_id=user_uuid)
-            session.add(overview)
+        profile = result.scalar_one_or_none()
+        if profile is None:
+            profile = BusinessProfile(user_id=user_uuid)
+            session.add(profile)
 
-        overview.content = narrative
-        overview.status = "ready"
-        overview.documents_snapshot = snapshot
+        profile.business_overview_content = narrative
+        profile.business_overview_status = "ready"
+        profile.business_overview_documents_snapshot = snapshot
         session.commit()
         return {
             "ok": True,
@@ -230,11 +230,67 @@ def generate_business_overview_task(self, user_id: str) -> dict:
         session.rollback()
         try:
             res = session.execute(
-                select(BusinessOverview).where(BusinessOverview.user_id == user_uuid)
+                select(BusinessProfile).where(BusinessProfile.user_id == user_uuid)
             )
-            ob = res.scalar_one_or_none()
-            if ob is not None:
-                ob.status = "failed"
+            profile = res.scalar_one_or_none()
+            if profile is not None:
+                profile.business_overview_status = "failed"
+                session.commit()
+        except Exception:
+            session.rollback()
+        raise self.retry(exc=e, countdown=60, max_retries=3)
+    finally:
+        session.close()
+
+
+@app.task(bind=True, name="continuity.generate_key_insights")
+def generate_key_insights_task(self, user_id: str) -> dict:
+    """
+    For the given user, gather all document insights and classifications,
+    generate ranked key insights with the LLM, and save them to BusinessProfile.
+    """
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except (ValueError, TypeError):
+        return {"ok": False, "error": "invalid_user_id", "user_id": user_id}
+
+    session = get_sync_session()
+    try:
+        context = _get_insights_context_for_user(session, user_uuid)
+        snapshot = compute_documents_snapshot(context)
+        key_insights = generate_top_key_insights(
+            context,
+            openai_api_key=settings.openai_api_key,
+            openai_model=settings.openai_model,
+        )
+
+        result = session.execute(
+            select(BusinessProfile).where(BusinessProfile.user_id == user_uuid)
+        )
+        profile = result.scalar_one_or_none()
+        if profile is None:
+            profile = BusinessProfile(user_id=user_uuid)
+            session.add(profile)
+
+        profile.key_insights = key_insights
+        profile.key_insights_status = "ready"
+        profile.key_insights_documents_snapshot = snapshot
+        session.commit()
+        return {
+            "ok": True,
+            "user_id": user_id,
+            "status": "ready",
+            "documents_snapshot": snapshot,
+        }
+    except Exception as e:
+        session.rollback()
+        try:
+            res = session.execute(
+                select(BusinessProfile).where(BusinessProfile.user_id == user_uuid)
+            )
+            profile = res.scalar_one_or_none()
+            if profile is not None:
+                profile.key_insights_status = "failed"
                 session.commit()
         except Exception:
             session.rollback()

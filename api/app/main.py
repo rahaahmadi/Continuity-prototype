@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth, business_overview, documents
+from app.routers import auth, business_overview, documents, key_insights
 
 app = FastAPI(
     title=settings.app_name,
@@ -21,6 +21,7 @@ app.add_middleware(
 
 app.include_router(auth.router, prefix="/api")
 app.include_router(business_overview.router, prefix="/api")
+app.include_router(key_insights.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 
 
