@@ -17,9 +17,9 @@ from src.services.document_insights import extract_document_insights
 from src.services.document_summarizer import summarize_document_text
 from src.services.business_overview import (
     compute_documents_snapshot,
-    generate_top_key_insights,
     generate_business_overview_narrative,
 )
+from src.services.key_insights import generate_top_key_insights
 
 
 def _get_insights_context_for_user(session: Session, user_id: Any) -> list[dict]:
