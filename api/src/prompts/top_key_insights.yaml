@@ -14,6 +14,7 @@ messages:
       - Each insight must have:
         - title: short and specific (about 3-8 words)
         - description: exactly one concise sentence
+        - kind: one of [growth, risk, financial, operations, customer, team, compliance, opportunity, other]
       - Prefer insights with highest impact on value, risk, growth, or transaction readiness.
       - If similar facts appear in multiple documents, merge them into one stronger insight.
       - Use only provided facts; do not infer unavailable data.

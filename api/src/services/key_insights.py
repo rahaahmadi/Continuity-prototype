@@ -1,5 +1,7 @@
 """Key insights: aggregate and rank top insights via LLM."""
 
+from typing import Literal
+
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel, Field
 
@@ -7,6 +9,17 @@ from src.prompt_loader import get_prompt
 
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 DEFAULT_MAX_KEY_INSIGHTS = 4
+ALLOWED_KEY_INSIGHT_KINDS = {
+    "growth",
+    "risk",
+    "financial",
+    "operations",
+    "customer",
+    "team",
+    "compliance",
+    "opportunity",
+    "other",
+}
 
 
 class KeyInsight(BaseModel):
@@ -14,6 +27,17 @@ class KeyInsight(BaseModel):
 
     title: str = Field(description="Short title of the insight")
     description: str = Field(description="One-line explanation of why it matters")
+    kind: Literal[
+        "growth",
+        "risk",
+        "financial",
+        "operations",
+        "customer",
+        "team",
+        "compliance",
+        "opportunity",
+        "other",
+    ] = Field(description="Semantic category used by frontend to pick icon/color")
 
 
 class KeyInsightsResult(BaseModel):
@@ -32,7 +56,7 @@ def generate_top_key_insights(
     """
     Generate and rank cross-document key insights.
 
-    Returns up to max_items entries, each with `title` and one-line `description`.
+    Returns up to max_items entries, each with `title`, `description`, and `kind`.
     """
     if not context or max_items <= 0 or not openai_api_key:
         return []
@@ -72,8 +96,17 @@ def generate_top_key_insights(
     for item in result.insights:
         title = (item.title or "").strip()
         description = " ".join((item.description or "").split())
+        kind = (item.kind or "other").strip().lower()
+        if kind not in ALLOWED_KEY_INSIGHT_KINDS:
+            kind = "other"
         if title and description:
-            clean_insights.append({"title": title, "description": description})
+            clean_insights.append(
+                {
+                    "title": title,
+                    "description": description,
+                    "kind": kind,
+                }
+            )
         if len(clean_insights) >= max_items:
             break
     return clean_insights
