@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
-import { Eye, Shield, Lock, Share2, Copy, Mail } from "lucide-react";
+import { Eye, Shield, Lock, Share2, Copy, Mail, CheckSquare } from "lucide-react";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
-import DocumentChecklist from "@/components/dashboard/DocumentChecklist";
+import DocumentChecklist, { getDocumentChecklistProgress } from "@/components/dashboard/DocumentChecklist";
 import DocumentRepository from "@/components/dashboard/DocumentRepository";
 import ChatInterface from "@/components/dashboard/ChatInterface";
 import SettingsModal from "@/components/dashboard/SettingsModal";
@@ -34,6 +34,8 @@ const Dashboard = () => {
   const location = useLocation();
   const tab = new URLSearchParams(location.search).get("tab") ?? "prepare";
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [documentChecklistOpen, setDocumentChecklistOpen] = useState(false);
+  const { completed: checklistDone, total: checklistTotal } = getDocumentChecklistProgress();
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -43,17 +45,33 @@ const Dashboard = () => {
       {tab === "prepare" && (
         <div className="flex flex-1 h-full flex-col overflow-hidden">
           <div className="border-b border-border bg-card px-8 py-6">
-            <h1 className="text-2xl font-serif font-bold text-foreground">Prepare</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Capture information and build the business profile.
-            </p>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h1 className="text-2xl font-serif font-bold text-foreground">Prepare</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Capture information and build the business profile.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 shrink-0 gap-2 border-border bg-transparent px-3 text-foreground hover:bg-muted sm:mt-0"
+                onClick={() => setDocumentChecklistOpen(true)}
+              >
+                <CheckSquare className="h-4 w-4" />
+                <span>Document checklist</span>
+                <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
+                  {checklistDone}/{checklistTotal}
+                </span>
+              </Button>
+            </div>
           </div>
-          <div className="flex flex-1 min-h-0">
-            <DocumentChecklist />
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto">
               <ChatInterface />
             </div>
           </div>
+          <DocumentChecklist open={documentChecklistOpen} onOpenChange={setDocumentChecklistOpen} />
         </div>
       )}
 

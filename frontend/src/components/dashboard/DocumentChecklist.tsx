@@ -1,5 +1,6 @@
-import { CheckCircle2, Circle, FileText, Building2, Receipt, Scale, Users, Settings } from "lucide-react";
+import { CheckCircle2, Circle, Building2, Receipt, Scale, Users, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 
 interface ChecklistCategory {
   name: string;
@@ -54,51 +55,65 @@ const categories: ChecklistCategory[] = [
   },
 ];
 
-const DocumentChecklist = () => {
-  const total = categories.reduce((acc, c) => acc + c.items.length, 0);
-  const completed = categories.reduce((acc, c) => acc + c.items.filter(i => i.completed).length, 0);
-  const pct = Math.round((completed / total) * 100);
+const totalChecklistItems = categories.reduce((acc, c) => acc + c.items.length, 0);
+const completedChecklistItems = categories.reduce((acc, c) => acc + c.items.filter(i => i.completed).length, 0);
+
+export function getDocumentChecklistProgress() {
+  return { completed: completedChecklistItems, total: totalChecklistItems };
+}
+
+interface DocumentChecklistProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+const DocumentChecklist = ({ open, onOpenChange }: DocumentChecklistProps) => {
+  const pct = Math.round((completedChecklistItems / totalChecklistItems) * 100);
 
   return (
-    <div className="w-80 border-r border-border bg-card h-full overflow-y-auto">
-      <div className="p-5 border-b border-border">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="font-semibold text-foreground text-sm flex items-center gap-2">
-            <FileText className="h-4 w-4 text-accent" />
-            Document Checklist
-          </h3>
-          <span className="text-xs font-medium text-muted-foreground">{pct}%</span>
-        </div>
-        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-          <div className="h-full gradient-gold rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">{completed} of {total} documents uploaded</p>
-      </div>
-
-      <div className="p-3 space-y-1">
-        {categories.map(cat => (
-          <div key={cat.name} className="mb-3">
-            <div className="flex items-center gap-2 px-2 py-1.5">
-              <cat.icon className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{cat.name}</span>
-            </div>
-            {cat.items.map(item => (
-              <div key={item.label} className={cn(
-                "flex items-center gap-2.5 px-2 py-1.5 rounded-md text-sm cursor-pointer transition-colors",
-                item.completed ? "text-muted-foreground" : "text-foreground hover:bg-muted"
-              )}>
-                {item.completed ? (
-                  <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
-                ) : (
-                  <Circle className="h-4 w-4 text-border flex-shrink-0" />
-                )}
-                <span className={cn(item.completed && "line-through")}>{item.label}</span>
-              </div>
-            ))}
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className="flex w-full flex-col gap-0 border-border bg-card p-0 sm:max-w-md"
+      >
+        <SheetHeader className="space-y-0 border-b border-border p-5 pb-4 text-left">
+          <SheetTitle className="pr-10 text-base font-semibold text-foreground">Document checklist</SheetTitle>
+          <SheetDescription className="text-xs text-muted-foreground">
+            {completedChecklistItems} of {totalChecklistItems} uploaded
+          </SheetDescription>
+          <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-muted">
+            <div className="h-full gradient-gold rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
           </div>
-        ))}
-      </div>
-    </div>
+        </SheetHeader>
+
+        <div className="flex-1 overflow-y-auto p-3">
+          {categories.map(cat => (
+            <div key={cat.name} className="mb-3">
+              <div className="flex items-center gap-2 px-2 py-1.5">
+                <cat.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{cat.name}</span>
+              </div>
+              {cat.items.map(item => (
+                <div
+                  key={item.label}
+                  className={cn(
+                    "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition-colors",
+                    item.completed ? "text-muted-foreground" : "cursor-pointer text-foreground hover:bg-muted",
+                  )}
+                >
+                  {item.completed ? (
+                    <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-success" />
+                  ) : (
+                    <Circle className="h-4 w-4 flex-shrink-0 text-border" />
+                  )}
+                  <span className={cn(item.completed && "line-through")}>{item.label}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 };
 
