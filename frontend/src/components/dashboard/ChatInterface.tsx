@@ -30,10 +30,20 @@ const ChatInterface = () => {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const TEXTAREA_MAX_PX = 200;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, TEXTAREA_MAX_PX)}px`;
+  }, [input]);
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -110,7 +120,7 @@ const ChatInterface = () => {
 
       {/* Input */}
       <div className="border-t border-border p-4 bg-card">
-        <div className="flex items-center gap-2 max-w-2xl mx-auto">
+        <div className="flex items-end gap-2 max-w-2xl mx-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon" className="flex-shrink-0 h-10 w-10 rounded-xl">
@@ -129,12 +139,19 @@ const ChatInterface = () => {
             </DropdownMenuContent>
           </DropdownMenu>
           <div className="flex-1 relative">
-            <input
+            <textarea
+              ref={textareaRef}
               value={input}
               onChange={e => setInput(e.target.value)}
-              onKeyDown={e => e.key === "Enter" && handleSend()}
+              onKeyDown={e => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              rows={1}
               placeholder="Type your answer or ask a question..."
-              className="w-full h-10 px-4 rounded-xl border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-accent transition-all"
+              className="w-full min-h-10 max-h-[200px] resize-none overflow-y-auto rounded-xl border border-border bg-background px-4 py-2.5 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-accent transition-all"
             />
           </div>
           <Button variant="outline" size="icon" className="flex-shrink-0 h-10 w-10 rounded-xl">
