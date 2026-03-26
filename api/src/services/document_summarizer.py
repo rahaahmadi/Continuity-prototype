@@ -8,6 +8,25 @@ from src.prompt_loader import get_prompt
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 
 
+def _normalize_markdown_summary(summary: str) -> str:
+    """Normalize LLM output into clean markdown text."""
+    cleaned = (summary or "").strip()
+    if not cleaned:
+        return ""
+
+    # Handle escaped newlines returned as literal \n.
+    cleaned = cleaned.replace("\\r\\n", "\n").replace("\\n", "\n")
+    cleaned = cleaned.replace("\r\n", "\n").strip()
+
+    # If model wraps markdown in fenced blocks, unwrap it.
+    if cleaned.startswith("```"):
+        lines = cleaned.split("\n")
+        if len(lines) >= 3 and lines[-1].strip() == "```":
+            cleaned = "\n".join(lines[1:-1]).strip()
+
+    return cleaned
+
+
 def summarize_document_text(
     text: str,
     filename: str = "",
@@ -42,6 +61,7 @@ def summarize_document_text(
                 "content": content,
             }
         )
-        return (result or "").strip() or None
+        normalized = _normalize_markdown_summary(result or "")
+        return normalized or None
     except Exception:
         return None

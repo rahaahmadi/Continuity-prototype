@@ -1,4 +1,6 @@
 import { X } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
@@ -50,6 +52,7 @@ export default function DocumentSummarySidebar({
   if (!isOpen) return null;
 
   const isProcessing = status === "loading" || status === "pending";
+  const normalizedSummary = summary ? summary.replace(/\\n/g, "\n").trim() : "";
 
   return (
     <div
@@ -90,10 +93,38 @@ export default function DocumentSummarySidebar({
               </p>
             </div>
           )}
-          {!isProcessing && status === "ready" && summary && (
-            <div className="whitespace-pre-wrap text-foreground">{summary}</div>
+          {!isProcessing && status === "ready" && normalizedSummary && (
+            <article className="chatgpt-markdown">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h1: ({ node, ...props }) => (
+                    <h1 className="text-xl font-semibold mt-4 mb-2 text-foreground" {...props} />
+                  ),
+                  h2: ({ node, ...props }) => (
+                    <h2 className="text-lg font-semibold mt-4 mb-2 text-foreground" {...props} />
+                  ),
+                  h3: ({ node, ...props }) => (
+                    <h3 className="text-base font-semibold mt-3 mb-1.5 text-foreground" {...props} />
+                  ),
+                  p: ({ node, ...props }) => (
+                    <p className="mb-3 leading-7 text-[14px] text-foreground" {...props} />
+                  ),
+                  ul: ({ node, ...props }) => (
+                    <ul className="list-disc pl-6 mb-3 space-y-1 text-[14px]" {...props} />
+                  ),
+                  ol: ({ node, ...props }) => (
+                    <ol className="list-decimal pl-6 mb-3 space-y-1 text-[14px]" {...props} />
+                  ),
+                  li: ({ node, ...props }) => <li className="leading-7" {...props} />,
+                  strong: ({ node, ...props }) => <strong className="font-semibold" {...props} />,
+                }}
+              >
+                {normalizedSummary}
+              </ReactMarkdown>
+            </article>
           )}
-          {!isProcessing && status === "ready" && !summary && (
+          {!isProcessing && status === "ready" && !normalizedSummary && (
             <p className="text-muted-foreground">No summary available.</p>
           )}
         </div>
