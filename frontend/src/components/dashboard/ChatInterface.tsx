@@ -42,7 +42,10 @@ const ChatInterface = () => {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, TEXTAREA_MAX_PX)}px`;
+    const fullHeight = el.scrollHeight;
+    const next = Math.min(fullHeight, TEXTAREA_MAX_PX);
+    el.style.height = `${next}px`;
+    el.style.overflowY = fullHeight > TEXTAREA_MAX_PX ? "auto" : "hidden";
   }, [input]);
 
   const handleSend = () => {
@@ -70,9 +73,9 @@ const ChatInterface = () => {
   };
 
   return (
-    <div className="flex flex-col flex-1 h-full">
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 pt-6 pb-2 space-y-6">
         {messages.map(msg => (
           <div key={msg.id} className={cn("flex gap-3 max-w-2xl", msg.role === "user" && "ml-auto flex-row-reverse")}>
             <div className={cn(
@@ -118,52 +121,64 @@ const ChatInterface = () => {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <div className="border-t border-border p-4 bg-card">
-        <div className="flex items-end gap-2 max-w-2xl mx-auto">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="flex-shrink-0 h-10 w-10 rounded-xl">
-                <Plus className="h-4 w-4" />
+      <div className="mx-auto w-full max-w-2xl shrink-0 px-6 py-2">
+        <div className="rounded-2xl border border-border bg-card p-2 shadow-soft transition-colors focus-within:border-accent/60 focus-within:ring-2 focus-within:ring-ring/15">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            rows={1}
+            placeholder="Type your answer or ask a question..."
+            className="w-full min-h-10 max-h-[200px] resize-none overflow-y-hidden bg-transparent px-3 py-2 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-none"
+          />
+          <div className="flex items-center justify-between gap-2 px-1 pb-0.5 pt-1">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem className="gap-2">
+                  <Upload className="h-4 w-4" />
+                  Upload files
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2">
+                  <Camera className="h-4 w-4" />
+                  Take photo
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <div className="flex items-center gap-0.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <Mic className="h-4 w-4" />
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem className="gap-2">
-                <Upload className="h-4 w-4" />
-                Upload files
-              </DropdownMenuItem>
-              <DropdownMenuItem className="gap-2">
-                <Camera className="h-4 w-4" />
-                Take photo
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <div className="flex-1 relative">
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              rows={1}
-              placeholder="Type your answer or ask a question..."
-              className="w-full min-h-10 max-h-[200px] resize-none overflow-y-auto rounded-xl border border-border bg-background px-4 py-2.5 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-accent transition-all"
-            />
+              <Button
+                type="button"
+                size="icon"
+                className="h-9 w-9 shrink-0 rounded-lg gradient-gold text-accent-foreground shadow-gold hover:opacity-90"
+                onClick={handleSend}
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-          <Button variant="outline" size="icon" className="flex-shrink-0 h-10 w-10 rounded-xl">
-            <Mic className="h-4 w-4" />
-          </Button>
-          <Button 
-            size="icon" 
-            className="flex-shrink-0 h-10 w-10 rounded-xl gradient-gold text-accent-foreground shadow-gold hover:opacity-90"
-            onClick={handleSend}
-          >
-            <Send className="h-4 w-4" />
-          </Button>
         </div>
       </div>
     </div>
