@@ -47,6 +47,7 @@ export default function DocumentRepository() {
   const [summaryContent, setSummaryContent] = useState<string | null>(null);
   const [summaryStatus, setSummaryStatus] = useState<"idle" | "loading" | "ready" | "pending">("idle");
   const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const processingPollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchDocuments = useCallback(async () => {
     if (!token) return;
@@ -65,6 +66,33 @@ export default function DocumentRepository() {
     fetchDocuments();
   }, [fetchDocuments]);
 
+  useEffect(() => {
+    if (!token) return;
+    const hasProcessingDocs = documents.some((doc) => doc.classification === null);
+    if (!hasProcessingDocs) {
+      if (processingPollTimerRef.current) {
+        clearTimeout(processingPollTimerRef.current);
+        processingPollTimerRef.current = null;
+      }
+      return;
+    }
+
+    if (processingPollTimerRef.current) return;
+
+    const pollForProcessedDocuments = async () => {
+      try {
+        const { documents: docs } = await listDocuments(token);
+        setDocuments(docs);
+      } catch {
+        // Keep polling quietly while backend processing continues.
+      } finally {
+        processingPollTimerRef.current = null;
+      }
+    };
+
+    processingPollTimerRef.current = setTimeout(pollForProcessedDocuments, POLL_INTERVAL_MS);
+  }, [documents, token]);
+
   const filteredDocs =
     selectedCategory === null
       ? documents
@@ -78,7 +106,8 @@ export default function DocumentRepository() {
     setUploading(true);
     try {
       for (let i = 0; i < files.length; i++) {
-        await uploadDocument(token, files[i]);
+        const uploadedDocument = await uploadDocument(token, files[i]);
+        setDocuments((prev) => [uploadedDocument, ...prev.filter((doc) => doc.id !== uploadedDocument.id)]);
       }
       await fetchDocuments();
     } finally {
@@ -140,6 +169,7 @@ export default function DocumentRepository() {
   useEffect(() => {
     return () => {
       if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+      if (processingPollTimerRef.current) clearTimeout(processingPollTimerRef.current);
     };
   }, []);
 
@@ -271,7 +301,14 @@ export default function DocumentRepository() {
                     ) : (
                       filteredDocs.map((doc) => (
                         <TableRow key={doc.id}>
-                          <TableCell className="font-medium">{doc.filename}</TableCell>
+                          <TableCell className={cn("font-medium", doc.classification === null && "text-muted-foreground")}>
+                            <div className="flex items-center gap-2">
+                              {doc.classification === null && (
+                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" aria-hidden="true" />
+                              )}
+                              <span>{doc.filename}</span>
+                            </div>
+                          </TableCell>
                           {showDateColumn && (
                             <TableCell className="text-muted-foreground text-sm">
                               {formatDate(doc.created_at)}
@@ -285,6 +322,7 @@ export default function DocumentRepository() {
                                 className="h-8 w-8"
                                 onClick={() => handleSummary(doc)}
                                 aria-label="Summary"
+                                disabled={doc.classification === null}
                               >
                                 <FileText className="h-4 w-4" />
                               </Button>
@@ -294,6 +332,7 @@ export default function DocumentRepository() {
                                 className="h-8 w-8"
                                 onClick={() => handleDownload(doc)}
                                 aria-label="Download"
+                                disabled={doc.classification === null}
                               >
                                 <Download className="h-4 w-4" />
                               </Button>
@@ -303,6 +342,7 @@ export default function DocumentRepository() {
                                 className="h-8 w-8 text-destructive hover:text-destructive"
                                 onClick={() => handleDelete(doc)}
                                 aria-label="Delete"
+                                disabled={doc.classification === null}
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
