@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import SettingsModal from "@/components/dashboard/SettingsModal";
 import { Button } from "@/components/ui/button";
@@ -45,11 +45,9 @@ const Report = () => {
   );
   const [overviewContent, setOverviewContent] = useState<string | null>(null);
 
-  const loadBusinessOverview = async () => {
+  const fetchBusinessOverview = async () => {
     if (!token) return;
     try {
-      setOverviewStatus("loading");
-      setOverviewOpen(true);
       const data = await getBusinessOverview(token);
       setOverviewStatus(data.status);
       setOverviewContent(data.content);
@@ -59,6 +57,29 @@ const Report = () => {
       setOverviewContent(null);
     }
   };
+
+  const loadBusinessOverview = async () => {
+    setOverviewStatus("loading");
+    setOverviewOpen(true);
+    await fetchBusinessOverview();
+  };
+
+  useEffect(() => {
+    if (!overviewOpen) return;
+    if (!token) return;
+
+    // Keep checking while the overview is still being generated.
+    const shouldPoll =
+      overviewStatus === "loading" || overviewStatus === "pending" || overviewStatus === "none";
+
+    if (!shouldPoll) return;
+
+    const intervalId = window.setInterval(() => {
+      void fetchBusinessOverview();
+    }, 3000);
+
+    return () => window.clearInterval(intervalId);
+  }, [overviewOpen, overviewStatus, token]);
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
