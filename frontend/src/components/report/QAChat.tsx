@@ -83,7 +83,7 @@ const QAChat = ({ isOpen, onClose, userType = "seller", variant = "floating" }: 
         "bg-card border border-border rounded-2xl shadow-elevated flex flex-col overflow-hidden",
         variant === "floating"
           ? "fixed bottom-6 right-6 w-96 h-[500px] z-50"
-          : "w-full h-full min-h-[520px]"
+          : "min-h-0 w-full flex-1"
       )}
     >
       {variant === "floating" && (
