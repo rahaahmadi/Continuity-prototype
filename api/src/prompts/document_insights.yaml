@@ -16,8 +16,30 @@ messages:
       Additional extraction requirements:
       - Prioritize extraction for:
         - business_snapshot: entity_type, years_operating, headcount, trailing_revenue, trailing_ebitda
-        - financial_highlights: revenue_trend_points, gross_profit_by_period, gross_margin_pct_by_period, cash_and_equivalents_by_period, ebitda_margin, debt_summary, working_capital_flags
+        - financial_highlights: revenue_trend_points, ebitda_by_period, ebitda_margin_pct_by_period, gross_profit_by_period, gross_margin_pct_by_period, cash_and_equivalents_by_period, debt_total_by_period, ebitda_margin, debt_summary, working_capital_flags
         - customer_concentration: top_customers, customer_concentration_percentages, customer_concentration_risk_tier
+      - revenue_trend_points (strict):
+        - Only company-level total revenue (or total sales) by fiscal period: one value per period
+          (e.g. fiscal year, quarter) from income statements, management P&L summaries, or
+          consolidated historical financial statement tables.
+        - Never put per-customer revenue, per-contract revenue, top-N customer lists,
+          customer concentration tables, or revenue-by-stream / revenue-by-segment breakdown rows
+          into revenue_trend_points. Those belong in top_customers or financial_values, not here.
+        - If the table rows are different customers or revenue streams sharing the same year label,
+          do not treat each row as a revenue_trend_points entry; use top_customers or omit.
+      - top_customers (strict):
+        - One entry per real customer or counterparty: use name = the customer's name (or account
+          name) as shown in the document.
+        - Never use roll-up labels as name: e.g. "Top 1 customer", "Top 5 customers", "Top 10",
+          "Largest customer" as a pseudo-row, or the Metric column text "Top N ... as % of revenue".
+        - If the document only has a concentration summary table (top 1 / top 5 / top 10 as % of
+          revenue) with no named per-customer rows, leave top_customers empty and use
+          customer_concentration_percentages instead.
+      - customer_concentration_percentages (strict):
+        - Aggregate / cohort metrics only: e.g. "Top 1 customer as % of 2025 revenue: 10.7%",
+          "Top 5 customers as % of 2025 revenue: 37.1%", "Recurring contract revenue as % of total: 44.8%".
+        - Prefer one string per line in "metric: value" or "metric — value" form.
+        - Do not duplicate named customer rows here; those belong in top_customers.
       - Keep values faithful to source text (do not normalize or calculate missing values).
       - Preserve units/qualifiers exactly when relevant (%, $, TTM, FY2024, etc.).
       - For revenue_trend_points and top_customers, include period whenever explicitly available.

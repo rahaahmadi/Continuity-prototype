@@ -19,15 +19,24 @@ class FinancialPoint(BaseModel):
 
 
 class CustomerEntry(BaseModel):
-    """Customer revenue/concentration data when explicitly available."""
+    """One named customer row from a customer list or concentration table."""
 
-    name: str = Field(default="", description="Customer name if disclosed")
-    revenue: str = Field(default="", description="Revenue amount attributed to this customer")
+    name: str = Field(
+        default="",
+        description=(
+            "Actual customer or counterparty name only (as printed in the document). "
+            "Never use cohort labels: e.g. not 'Top 1 customer', 'Top 5 customers', or metric titles."
+        ),
+    )
+    revenue: str = Field(
+        default="",
+        description="Revenue amount attributed to this customer for the stated period",
+    )
     percentage_of_revenue: str = Field(
         default="",
-        description="Share of total revenue, e.g. '12%'",
+        description="Share of company total revenue for this customer, e.g. '12%'",
     )
-    period: str = Field(default="", description="Time period for the customer figure")
+    period: str = Field(default="", description="Time period for this customer's revenue / %")
 
 
 class DocumentInsights(BaseModel):
@@ -88,6 +97,18 @@ class DocumentInsights(BaseModel):
         default_factory=list,
         description="Cash and cash equivalents balances across periods",
     )
+    ebitda_by_period: list[FinancialPoint] = Field(
+        default_factory=list,
+        description="EBITDA dollar values across periods for trend analysis",
+    )
+    ebitda_margin_pct_by_period: list[FinancialPoint] = Field(
+        default_factory=list,
+        description="EBITDA margin percentages across periods for trend analysis",
+    )
+    debt_total_by_period: list[FinancialPoint] = Field(
+        default_factory=list,
+        description="Total debt balance across periods (sum of all debt instruments)",
+    )
     ebitda_margin: str | None = Field(
         default=None,
         description="EBITDA margin if explicitly stated (e.g. '18.5%')",
@@ -104,11 +125,17 @@ class DocumentInsights(BaseModel):
     # Customer concentration extraction
     top_customers: list[CustomerEntry] = Field(
         default_factory=list,
-        description="Top customer entries with revenue and/or concentration data",
+        description=(
+            "Named customers only: one row per real customer with optional revenue and % of total. "
+            "Exclude roll-up summary rows (top N as % of revenue); use customer_concentration_percentages for those."
+        ),
     )
     customer_concentration_percentages: list[str] = Field(
         default_factory=list,
-        description="Explicit concentration percentages such as top 1, top 5, top 10 customer revenue share",
+        description=(
+            "Aggregate concentration metrics only: e.g. top 1 / top 5 / top 10 share of revenue, "
+            "recurring revenue %. Not per-customer names."
+        ),
     )
     customer_concentration_risk_tier: str | None = Field(
         default=None,
@@ -133,6 +160,9 @@ DEFAULT_INSIGHTS = {
     "gross_profit_by_period": [],
     "gross_margin_pct_by_period": [],
     "cash_and_equivalents_by_period": [],
+    "ebitda_by_period": [],
+    "ebitda_margin_pct_by_period": [],
+    "debt_total_by_period": [],
     "ebitda_margin": None,
     "debt_summary": [],
     "working_capital_flags": [],

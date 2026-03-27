@@ -1,7 +1,7 @@
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
-const revenueData = [
+const fallbackRevenueData = [
   { month: "Jan", revenue: 180000 },
   { month: "Feb", revenue: 195000 },
   { month: "Mar", revenue: 210000 },
@@ -23,7 +23,25 @@ const chartConfig = {
   },
 };
 
-const RevenueChart = () => {
+type RevenuePoint = {
+  period: string;
+  value_raw: string;
+  value_numeric: number | null;
+};
+
+type RevenueChartProps = {
+  points?: RevenuePoint[];
+};
+
+const RevenueChart = ({ points }: RevenueChartProps) => {
+  const revenueData =
+    points && points.length > 0
+      ? points.map((point) => ({
+          month: point.period,
+          revenue: point.value_numeric ?? 0,
+        }))
+      : fallbackRevenueData;
+
   return (
     <div className="p-6 rounded-xl border border-border bg-card shadow-soft">
       <h3 className="font-semibold text-foreground text-lg mb-4">Revenue Trend (TTM)</h3>

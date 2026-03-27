@@ -1,30 +1,57 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
+import { PieChart, Pie, Cell, Legend, Tooltip } from "recharts";
+import { ChartContainer } from "@/components/ui/chart";
 
-const segmentData = [
-  { name: "Enterprise", value: 35, color: "hsl(var(--primary))" },
-  { name: "SMB", value: 40, color: "hsl(var(--accent))" },
-  { name: "Startup", value: 15, color: "hsl(var(--success))" },
-  { name: "Individual", value: 10, color: "hsl(var(--muted-foreground))" },
+const COLORS = [
+  "hsl(var(--primary))",
+  "hsl(var(--accent))",
+  "hsl(var(--success))",
+  "hsl(var(--muted-foreground))",
+  "#60a5fa",
+  "#f472b6",
 ];
 
-const chartConfig = {
-  enterprise: { label: "Enterprise", color: "hsl(var(--primary))" },
-  smb: { label: "SMB", color: "hsl(var(--accent))" },
-  startup: { label: "Startup", color: "hsl(var(--success))" },
-  individual: { label: "Individual", color: "hsl(var(--muted-foreground))" },
+const chartConfig = {};
+
+type TopCustomer = {
+  name: string;
+  percentage_of_revenue: string | null;
 };
 
-const CustomerSegments = () => {
+type CustomerSegmentsProps = {
+  topCustomers?: TopCustomer[];
+};
+
+function parsePercentage(value: string | null): number | null {
+  if (!value) return null;
+  const match = value.match(/-?\d+(\.\d+)?/);
+  const parsed = match ? Number(match[0]) : null;
+  return parsed !== null && parsed > 0 ? parsed : null;
+}
+
+const CustomerSegments = ({ topCustomers }: CustomerSegmentsProps) => {
+  const segmentData = (topCustomers ?? [])
+    .map((c, index) => {
+      const pct = parsePercentage(c.percentage_of_revenue);
+      if (pct === null) return null;
+      return {
+        name: c.name || `Customer ${index + 1}`,
+        value: pct,
+        color: COLORS[index % COLORS.length],
+      };
+    })
+    .filter((item): item is { name: string; value: number; color: string } => item !== null);
+
+  if (segmentData.length === 0) return null;
+
   return (
     <div className="p-6 rounded-xl border border-border bg-card shadow-soft">
-      <h3 className="font-semibold text-foreground text-lg mb-4">Customer Segments</h3>
+      <h3 className="font-semibold text-foreground text-lg mb-4">Customer Concentration</h3>
       <ChartContainer config={chartConfig} className="h-[280px] w-full">
         <PieChart>
           <Pie
             data={segmentData}
             cx="50%"
-            cy="50%"
+            cy="45%"
             innerRadius={60}
             outerRadius={100}
             paddingAngle={2}
@@ -34,7 +61,7 @@ const CustomerSegments = () => {
               <Cell key={`cell-${index}`} fill={entry.color} />
             ))}
           </Pie>
-          <Tooltip 
+          <Tooltip
             content={({ active, payload }) => {
               if (active && payload && payload.length) {
                 return (
@@ -47,7 +74,7 @@ const CustomerSegments = () => {
               return null;
             }}
           />
-          <Legend 
+          <Legend
             verticalAlign="bottom"
             formatter={(value) => <span className="text-sm text-foreground">{value}</span>}
           />

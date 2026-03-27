@@ -146,6 +146,56 @@ export type KeyInsightsResponse = {
   status: "none" | "pending" | "ready" | "failed";
 };
 
+export type WidgetPointResponse = {
+  period: string;
+  value_raw: string;
+  value_numeric: number | null;
+};
+
+export type BusinessSnapshotWidget = {
+  entity_type: string | null;
+  years_operating: number | null;
+  headcount: number | null;
+  trailing_revenue: string | null;
+  trailing_ebitda: string | null;
+};
+
+export type FinancialHighlightsWidget = {
+  ebitda_margin: string | null;
+  debt_summary: string[];
+  working_capital_flags: string[];
+  gross_profit_by_period: WidgetPointResponse[];
+  gross_margin_pct_by_period: WidgetPointResponse[];
+  cash_and_equivalents_by_period: WidgetPointResponse[];
+  ebitda_by_period: WidgetPointResponse[];
+  ebitda_margin_pct_by_period: WidgetPointResponse[];
+  debt_total_by_period: WidgetPointResponse[];
+};
+
+export type TopCustomerWidget = {
+  name: string;
+  revenue: string | null;
+  percentage_of_revenue: string | null;
+  period: string | null;
+};
+
+export type CustomerConcentrationWidget = {
+  top_customers: TopCustomerWidget[];
+  percentages: string[];
+  risk_tier: string | null;
+};
+
+export type BusinessProfileWidgetsResponse = {
+  status: "none" | "pending" | "ready";
+  readiness_score: number;
+  readiness_completed_checks: number;
+  readiness_total_checks: number;
+  business_snapshot: BusinessSnapshotWidget;
+  revenue_trend_points: WidgetPointResponse[];
+  financial_highlights: FinancialHighlightsWidget;
+  customer_concentration: CustomerConcentrationWidget;
+};
+
 export async function listDocuments(token: string): Promise<{ documents: DocumentResponse[] }> {
   const res = await fetch(`${getApiUrl()}/api/documents`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -189,6 +239,16 @@ export async function getKeyInsights(token: string): Promise<KeyInsightsResponse
     headers: { Authorization: `Bearer ${token}` },
   });
   return handleResponse<KeyInsightsResponse>(res);
+}
+
+export async function getBusinessProfileWidgets(
+  token: string,
+): Promise<BusinessProfileWidgetsResponse> {
+  const res = await fetch(`${getApiUrl()}/api/business-profile/widgets`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return handleResponse<BusinessProfileWidgetsResponse>(res);
 }
 
 export async function deleteDocument(token: string, documentId: string): Promise<void> {

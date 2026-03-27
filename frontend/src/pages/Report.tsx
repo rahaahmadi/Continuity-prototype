@@ -6,20 +6,19 @@ import { Share2, Download, MessageSquare, TrendingUp, Users, DollarSign, Buildin
 import { cn } from "@/lib/utils";
 import RevenueChart from "@/components/report/RevenueChart";
 import CustomerSegments from "@/components/report/CustomerSegments";
+import ConcentrationSummary from "@/components/report/ConcentrationSummary";
+import EbitdaTrendChart from "@/components/report/EbitdaTrendChart";
+import DebtTrendChart from "@/components/report/DebtTrendChart";
 import KeyInsights from "@/components/report/KeyInsights";
 import QAChat from "@/components/report/QAChat";
 import BusinessOverviewSidebar from "@/components/report/BusinessOverviewSidebar";
 import { useAuth } from "@/contexts/AuthContext";
-import { getBusinessOverview, type BusinessOverviewResponse } from "@/lib/api";
-
-const readinessScore = 42;
-
-const metrics = [
-  { label: "Revenue (TTM)", value: "$2.4M", change: "+12%", icon: DollarSign },
-  { label: "EBITDA Margin", value: "18.5%", change: "+3.2%", icon: TrendingUp },
-  { label: "Employees", value: "24", change: "", icon: Users },
-  { label: "Years Operating", value: "12", change: "", icon: Building2 },
-];
+import {
+  getBusinessOverview,
+  getBusinessProfileWidgets,
+  type BusinessOverviewResponse,
+  type BusinessProfileWidgetsResponse,
+} from "@/lib/api";
 
 const sections = [
   { title: "Business Overview", tier: 1, icon: Eye, description: "Company summary, industry, and market position." },
@@ -44,6 +43,8 @@ const Report = () => {
     "none",
   );
   const [overviewContent, setOverviewContent] = useState<string | null>(null);
+  const [widgets, setWidgets] = useState<BusinessProfileWidgetsResponse | null>(null);
+  const [widgetsStatus, setWidgetsStatus] = useState<"loading" | "ready" | "failed">("loading");
 
   const fetchBusinessOverview = async () => {
     if (!token) return;
@@ -63,6 +64,63 @@ const Report = () => {
     setOverviewOpen(true);
     await fetchBusinessOverview();
   };
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+
+    const loadWidgets = async () => {
+      setWidgetsStatus("loading");
+      try {
+        const data = await getBusinessProfileWidgets(token);
+        if (cancelled) return;
+        setWidgets(data);
+        setWidgetsStatus("ready");
+      } catch (e) {
+        if (cancelled) return;
+        console.error(e);
+        setWidgets(null);
+        setWidgetsStatus("failed");
+      }
+    };
+
+    void loadWidgets();
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
+
+  const revenuePoints = widgets?.revenue_trend_points ?? [];
+  const readinessScore = widgets?.readiness_score ?? 0;
+  const readinessSubtitle = widgets
+    ? `${widgets.readiness_completed_checks}/${widgets.readiness_total_checks} core checks complete`
+    : "Continue uploading documents and answering questions to improve your score.";
+
+  // KPI card visibility — only show when data is present
+  const revenueTTM = widgets?.business_snapshot.trailing_revenue ?? null;
+  const ebitdaTTM = widgets?.business_snapshot.trailing_ebitda ?? null;
+  const ebitdaMargin = widgets?.financial_highlights.ebitda_margin ?? null;
+  const headcount = widgets?.business_snapshot.headcount ?? null;
+  const yearsOp = widgets?.business_snapshot.years_operating ?? null;
+  const showRevenueTTM = revenueTTM !== null;
+  const showEbitdaTTM = ebitdaTTM !== null;
+  const showEbitdaMargin = ebitdaMargin !== null;
+  const showHeadcount = headcount !== null;
+  const showYearsOp = yearsOp !== null;
+  const anyKpiCard = showRevenueTTM || showEbitdaTTM || showEbitdaMargin || showHeadcount || showYearsOp;
+
+  // Chart visibility — only show when trend data is present
+  const showRevenueTrend = revenuePoints.length > 0;
+  const ebitdaPoints = widgets?.financial_highlights.ebitda_by_period ?? [];
+  const ebitdaMarginPoints = widgets?.financial_highlights.ebitda_margin_pct_by_period ?? [];
+  const debtPoints = widgets?.financial_highlights.debt_total_by_period ?? [];
+  const showEbitdaTrend = ebitdaPoints.length > 0 || ebitdaMarginPoints.length > 0;
+  const showDebtTrend = debtPoints.length > 0;
+  const showCustomerConcentration = (widgets?.customer_concentration.top_customers ?? []).some(
+    (c) => c.percentage_of_revenue !== null && c.percentage_of_revenue !== "",
+  );
+  const concentrationSummaryLines = widgets?.customer_concentration.percentages ?? [];
+  const showConcentrationSummary = concentrationSummaryLines.length > 0;
 
   useEffect(() => {
     if (!overviewOpen) return;
@@ -120,31 +178,83 @@ const Report = () => {
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-3">
-                  Continue uploading documents and answering questions to improve your score.
+                  {readinessSubtitle}
                 </p>
               </div>
 
-              {/* Key Metrics */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {metrics.map(m => (
-                  <div key={m.label} className="p-4 rounded-xl border border-border bg-card shadow-soft">
-                    <div className="flex items-center gap-2 mb-2">
-                      <m.icon className="h-4 w-4 text-accent" />
-                      <span className="text-xs text-muted-foreground">{m.label}</span>
+              {/* KPI Cards — only render cards with real data */}
+              {anyKpiCard && (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  {showRevenueTTM && (
+                    <div className="p-4 rounded-xl border border-border bg-card shadow-soft">
+                      <div className="flex items-center gap-2 mb-2">
+                        <DollarSign className="h-4 w-4 text-accent" />
+                        <span className="text-xs text-muted-foreground">Revenue (TTM)</span>
+                      </div>
+                      <span className="text-xl font-bold text-foreground">{revenueTTM}</span>
                     </div>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-xl font-bold text-foreground">{m.value}</span>
-                      {m.change && <span className="text-xs font-medium text-success">{m.change}</span>}
+                  )}
+                  {showEbitdaTTM && (
+                    <div className="p-4 rounded-xl border border-border bg-card shadow-soft">
+                      <div className="flex items-center gap-2 mb-2">
+                        <TrendingUp className="h-4 w-4 text-accent" />
+                        <span className="text-xs text-muted-foreground">EBITDA (TTM)</span>
+                      </div>
+                      <span className="text-xl font-bold text-foreground">{ebitdaTTM}</span>
                     </div>
-                  </div>
-                ))}
+                  )}
+                  {showEbitdaMargin && (
+                    <div className="p-4 rounded-xl border border-border bg-card shadow-soft">
+                      <div className="flex items-center gap-2 mb-2">
+                        <TrendingUp className="h-4 w-4 text-accent" />
+                        <span className="text-xs text-muted-foreground">EBITDA Margin</span>
+                      </div>
+                      <span className="text-xl font-bold text-foreground">{ebitdaMargin}</span>
+                    </div>
+                  )}
+                  {showHeadcount && (
+                    <div className="p-4 rounded-xl border border-border bg-card shadow-soft">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="h-4 w-4 text-accent" />
+                        <span className="text-xs text-muted-foreground">Employees</span>
+                      </div>
+                      <span className="text-xl font-bold text-foreground">{headcount}</span>
+                    </div>
+                  )}
+                  {showYearsOp && (
+                    <div className="p-4 rounded-xl border border-border bg-card shadow-soft">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Building2 className="h-4 w-4 text-accent" />
+                        <span className="text-xs text-muted-foreground">Years Operating</span>
+                      </div>
+                      <span className="text-xl font-bold text-foreground">{yearsOp}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Widgets grid: stack on mobile, 2-up on larger screens */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {showRevenueTrend && <RevenueChart points={revenuePoints} />}
+                {showEbitdaTrend && (
+                  <EbitdaTrendChart ebitdaPoints={ebitdaPoints} marginPoints={ebitdaMarginPoints} />
+                )}
+                {showDebtTrend && <DebtTrendChart points={debtPoints} />}
+                {showCustomerConcentration && (
+                  <CustomerSegments topCustomers={widgets?.customer_concentration.top_customers} />
+                )}
+                {showConcentrationSummary && (
+                  <ConcentrationSummary lines={concentrationSummaryLines} />
+                )}
               </div>
 
-              {/* Charts Row */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <RevenueChart />
-                <CustomerSegments />
-              </div>
+              {widgetsStatus === "failed" && (
+                <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3">
+                  <p className="text-sm text-destructive">
+                    Unable to load business profile widgets right now.
+                  </p>
+                </div>
+              )}
 
               {/* Key Insights */}
               <KeyInsights />
