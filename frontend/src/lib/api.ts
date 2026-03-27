@@ -203,6 +203,13 @@ export async function listDocuments(token: string): Promise<{ documents: Documen
   return handleResponse<{ documents: DocumentResponse[] }>(res);
 }
 
+export async function getDocument(token: string, documentId: string): Promise<DocumentResponse> {
+  const res = await fetch(`${getApiUrl()}/api/documents/${documentId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return handleResponse<DocumentResponse>(res);
+}
+
 export async function uploadDocument(token: string, file: File): Promise<DocumentResponse> {
   const form = new FormData();
   form.append("file", file);
