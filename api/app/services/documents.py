@@ -5,15 +5,11 @@ from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
 from app.config import settings
 from app.models import Document
-from app.tasks.document_tasks import (
-    classify_document_task,
-    generate_insights_task,
-    summarize_document_task,
-)
-from src.services.document_loader import extract_text_from_file
+from app.tasks.document_tasks import prepare_document_task, summarize_document_task
 
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
@@ -37,7 +33,7 @@ async def upload_document(
     content: bytes,
     db: AsyncSession,
 ) -> Document:
-    """Save file to disk, create Document, commit, enqueue classify and insights tasks. Raises ValueError if size exceeded."""
+    """Save file to disk, create Document, commit, enqueue extraction + downstream tasks. Raises ValueError if size exceeded."""
     if len(content) > MAX_FILE_SIZE:
         raise ValueError(f"File too large (max {MAX_FILE_SIZE // (1024*1024)} MB)")
     safe_name = filename.strip().replace("..", "")
@@ -46,28 +42,29 @@ async def upload_document(
     stored_path = user_dir / stored_name
     stored_path.write_bytes(content)
     relative_path = f"{user_id}/{stored_name}"
-    extracted_text = extract_text_from_file(stored_path, content_type)
     doc = Document(
         user_id=user_id,
         filename=filename.strip(),
         stored_path=relative_path,
         content_type=content_type,
         size_bytes=len(content),
-        extracted_text=extracted_text,
+        extracted_text=None,
         insights_status="pending",
     )
     db.add(doc)
     await db.commit()
     await db.refresh(doc)
-    classify_document_task.delay(str(doc.id))
-    generate_insights_task.delay(str(doc.id))
+    prepare_document_task.delay(str(doc.id))
     return doc
 
 
 async def list_documents(user_id: uuid.UUID, db: AsyncSession) -> list[Document]:
     """Return all documents for the user, newest first."""
     result = await db.execute(
-        select(Document).where(Document.user_id == user_id).order_by(Document.created_at.desc())
+        select(Document)
+        .where(Document.user_id == user_id)
+        .order_by(Document.created_at.desc())
+        .options(defer(Document.extracted_text))
     )
     return list(result.scalars().all())
 
@@ -79,7 +76,9 @@ async def get_document(
 ) -> Document | None:
     """Return document by id if it belongs to user, else None."""
     result = await db.execute(
-        select(Document).where(Document.id == document_id, Document.user_id == user_id)
+        select(Document)
+        .where(Document.id == document_id, Document.user_id == user_id)
+        .options(defer(Document.extracted_text))
     )
     return result.scalar_one_or_none()
 
@@ -95,7 +94,9 @@ async def get_or_create_summary(
     Returns (None, "pending") with second element "pending" when enqueueing.
     """
     result = await db.execute(
-        select(Document).where(Document.id == document_id, Document.user_id == user_id)
+        select(Document)
+        .where(Document.id == document_id, Document.user_id == user_id)
+        .options(defer(Document.extracted_text))
     )
     doc = result.scalar_one_or_none()
     if doc is None:
@@ -117,7 +118,9 @@ async def download_document(
 ) -> tuple[Path, str, str] | None:
     """Return (full_path, filename, media_type) if document exists and file is present, else None."""
     result = await db.execute(
-        select(Document).where(Document.id == document_id, Document.user_id == user_id)
+        select(Document)
+        .where(Document.id == document_id, Document.user_id == user_id)
+        .options(defer(Document.extracted_text))
     )
     doc = result.scalar_one_or_none()
     if doc is None:
@@ -135,7 +138,9 @@ async def delete_document(
 ) -> bool:
     """Delete document and its file if it belongs to user. Return True if deleted, False if not found."""
     result = await db.execute(
-        select(Document).where(Document.id == document_id, Document.user_id == user_id)
+        select(Document)
+        .where(Document.id == document_id, Document.user_id == user_id)
+        .options(defer(Document.extracted_text))
     )
     doc = result.scalar_one_or_none()
     if doc is None:

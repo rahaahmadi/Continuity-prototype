@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import defer
 
 from app.models import BusinessProfile, Document
 from app.tasks.document_tasks import generate_business_overview_task
@@ -33,6 +34,7 @@ async def get_or_generate_business_overview(
         select(Document)
         .where(Document.user_id == user_id)
         .order_by(Document.created_at.asc())
+        .options(defer(Document.extracted_text))
     )
     docs = list(docs_result.scalars().all())
     context = build_context_from_documents(docs)

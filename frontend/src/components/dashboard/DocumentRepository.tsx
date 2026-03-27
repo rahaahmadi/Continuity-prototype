@@ -308,13 +308,8 @@ export default function DocumentRepository() {
                   <Button
                     className="gradient-gold text-accent-foreground shadow-gold hover:opacity-90 gap-2"
                     onClick={handleUploadClick}
-                    disabled={uploading}
                   >
-                    {uploading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Upload className="h-4 w-4" />
-                    )}
+                    <Upload className="h-4 w-4" />
                     Upload Files
                   </Button>
                 </div>
