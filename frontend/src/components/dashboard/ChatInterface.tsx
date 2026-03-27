@@ -10,6 +10,7 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getDocument, uploadDocument } from "@/lib/api";
+import { labelToCamelCase } from "@/constants/documentLabels";
 import { getFileCategoryLabel, getCategoryIconClass } from "@/lib/fileCategory";
 import { cn } from "@/lib/utils";
 
@@ -235,7 +236,7 @@ const ChatInterface = () => {
     if (upload.error) return "";
     if (upload.uploading) return "Uploading file…";
     if (upload.documentCategory) {
-      return `**Document category:** ${upload.documentCategory}`;
+      return `**Document category:** ${labelToCamelCase(upload.documentCategory)}`;
     }
     if (upload.pollExceeded) {
       return "Category will appear in your document repository when processing finishes.";
