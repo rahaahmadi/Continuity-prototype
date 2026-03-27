@@ -13,6 +13,7 @@ from app.tasks.document_tasks import (
     generate_insights_task,
     summarize_document_task,
 )
+from src.services.document_loader import extract_text_from_file
 
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
@@ -45,12 +46,14 @@ async def upload_document(
     stored_path = user_dir / stored_name
     stored_path.write_bytes(content)
     relative_path = f"{user_id}/{stored_name}"
+    extracted_text = extract_text_from_file(stored_path, content_type)
     doc = Document(
         user_id=user_id,
         filename=filename.strip(),
         stored_path=relative_path,
         content_type=content_type,
         size_bytes=len(content),
+        extracted_text=extracted_text,
         insights_status="pending",
     )
     db.add(doc)

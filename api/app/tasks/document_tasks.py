@@ -22,6 +22,19 @@ from src.services.business_overview import (
 from src.services.key_insights import generate_top_key_insights
 
 
+def _get_document_text(doc: Document) -> str:
+    """
+    Return cached extracted text when available; otherwise extract once and cache it.
+    """
+    if doc.extracted_text is not None:
+        return doc.extracted_text
+
+    full_path = Path(settings.upload_dir).resolve() / doc.stored_path
+    text = extract_text_from_file(full_path, doc.content_type)
+    doc.extracted_text = text
+    return text
+
+
 def _get_insights_context_for_user(session: Session, user_id: Any) -> list[dict]:
     """
     Return list of dicts with document id, filename, classification, and insights
@@ -66,8 +79,7 @@ def classify_document_task(self, document_id: str) -> dict:
         if doc is None:
             return {"ok": False, "error": "document_not_found", "document_id": document_id}
 
-        full_path = Path(settings.upload_dir).resolve() / doc.stored_path
-        text = extract_text_from_file(full_path, doc.content_type)
+        text = _get_document_text(doc)
         classification = classify_document_text(
             text,
             filename=doc.filename,
@@ -106,8 +118,7 @@ def summarize_document_task(self, document_id: str) -> dict:
         if doc is None:
             return {"ok": False, "error": "document_not_found", "document_id": document_id}
 
-        full_path = Path(settings.upload_dir).resolve() / doc.stored_path
-        text = extract_text_from_file(full_path, doc.content_type)
+        text = _get_document_text(doc)
         summary = summarize_document_text(
             text,
             filename=doc.filename,
@@ -156,8 +167,7 @@ def generate_insights_task(self, document_id: str) -> dict:
         if doc is None:
             return {"ok": False, "error": "document_not_found", "document_id": document_id}
 
-        full_path = Path(settings.upload_dir).resolve() / doc.stored_path
-        text = extract_text_from_file(full_path, doc.content_type)
+        text = _get_document_text(doc)
         insights = extract_document_insights(
             text,
             filename=doc.filename,
