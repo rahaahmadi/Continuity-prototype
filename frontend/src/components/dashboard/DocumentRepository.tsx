@@ -29,12 +29,14 @@ import {
   uploadDocument,
   type DocumentResponse,
 } from "@/lib/api";
+import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 
 const POLL_INTERVAL_MS = 2000;
 
 export default function DocumentRepository() {
   const { token } = useAuth();
+  const { toast } = useToast();
   const [explorerOpen, setExplorerOpen] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<ExplorerCategory>(null);
   const [documents, setDocuments] = useState<DocumentResponse[]>([]);
@@ -68,6 +70,7 @@ export default function DocumentRepository() {
 
   useEffect(() => {
     if (!token) return;
+    if (uploading) return;
     const hasProcessingDocs = documents.some((doc) => doc.classification === null);
     if (!hasProcessingDocs) {
       if (processingPollTimerRef.current) {
@@ -91,7 +94,7 @@ export default function DocumentRepository() {
     };
 
     processingPollTimerRef.current = setTimeout(pollForProcessedDocuments, POLL_INTERVAL_MS);
-  }, [documents, token]);
+  }, [documents, token, uploading]);
 
   const filteredDocs =
     selectedCategory === null
@@ -103,13 +106,57 @@ export default function DocumentRepository() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files?.length || !token) return;
+    const fileList = Array.from(files);
+    const placeholders: DocumentResponse[] = fileList.map((file, index) => ({
+      id: `uploading-${Date.now()}-${index}-${file.name}`,
+      filename: file.name,
+      content_type: file.type || "application/octet-stream",
+      size_bytes: file.size,
+      created_at: new Date().toISOString(),
+      classification: null,
+      summary: null,
+      summary_status: "none",
+      insights: null,
+      insights_status: "none",
+    }));
+
     setUploading(true);
+    setDocuments((prev) => [...placeholders, ...prev]);
     try {
-      for (let i = 0; i < files.length; i++) {
-        const uploadedDocument = await uploadDocument(token, files[i]);
-        setDocuments((prev) => [uploadedDocument, ...prev.filter((doc) => doc.id !== uploadedDocument.id)]);
+      const failedUploads: { name: string; reason: string }[] = [];
+
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        const placeholderId = placeholders[i].id;
+        try {
+          const uploadedDocument = await uploadDocument(token, file);
+          setDocuments((prev) =>
+            prev.map((doc) => (doc.id === placeholderId ? uploadedDocument : doc)),
+          );
+        } catch (err) {
+          const reason =
+            err instanceof Error && err.message.trim()
+              ? err.message.trim()
+              : "Upload failed";
+          failedUploads.push({ name: file.name, reason });
+          setDocuments((prev) => prev.filter((doc) => doc.id !== placeholderId));
+        }
       }
+
       await fetchDocuments();
+
+      if (failedUploads.length > 0) {
+        const first = failedUploads[0];
+        const moreCount = failedUploads.length - 1;
+        toast({
+          variant: "destructive",
+          title: `Failed to upload ${failedUploads.length} file${failedUploads.length > 1 ? "s" : ""}`,
+          description:
+            moreCount > 0
+              ? `${first.name}: ${first.reason}. +${moreCount} more.`
+              : `${first.name}: ${first.reason}`,
+        });
+      }
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -261,13 +308,8 @@ export default function DocumentRepository() {
                   <Button
                     className="gradient-gold text-accent-foreground shadow-gold hover:opacity-90 gap-2"
                     onClick={handleUploadClick}
-                    disabled={uploading}
                   >
-                    {uploading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Upload className="h-4 w-4" />
-                    )}
+                    <Upload className="h-4 w-4" />
                     Upload Files
                   </Button>
                 </div>

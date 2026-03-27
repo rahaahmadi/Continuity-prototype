@@ -30,6 +30,8 @@ class Document(Base):
     stored_path: Mapped[str] = mapped_column(String(1024), nullable=False, unique=True)
     content_type: Mapped[str] = mapped_column(String(255), nullable=False)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Cached extracted text for downstream LLM workers (classification/insights/summary)
+    extracted_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app.celery_app import app
 from app.config import settings
@@ -22,6 +22,56 @@ from src.services.business_overview import (
 from src.services.key_insights import generate_top_key_insights
 
 
+@app.task(bind=True, name="continuity.prepare_document")
+def prepare_document_task(self, document_id: str) -> dict:
+    """
+    Extract text in the worker (non-blocking for the upload request), cache on the row,
+    then enqueue classification and insights when still needed.
+    """
+    try:
+        doc_uuid = uuid.UUID(document_id)
+    except (ValueError, TypeError):
+        return {"ok": False, "error": "invalid_document_id", "document_id": document_id}
+
+    session = get_sync_session()
+    try:
+        result = session.execute(select(Document).where(Document.id == doc_uuid))
+        doc = result.scalar_one_or_none()
+        if doc is None:
+            return {"ok": False, "error": "document_not_found", "document_id": document_id}
+
+        if not doc.extracted_text:
+            full_path = Path(settings.upload_dir).resolve() / doc.stored_path
+            text = extract_text_from_file(full_path, doc.content_type)
+            doc.extracted_text = text
+            session.commit()
+
+        if doc.classification is None:
+            classify_document_task.delay(document_id)
+        if doc.insights_status != "ready":
+            generate_insights_task.delay(document_id)
+
+        return {"ok": True, "document_id": document_id}
+    except Exception as e:
+        session.rollback()
+        raise self.retry(exc=e, countdown=60, max_retries=3)
+    finally:
+        session.close()
+
+
+def _get_document_text(doc: Document) -> str:
+    """
+    Return cached extracted text when available; otherwise extract once and cache it.
+    """
+    if doc.extracted_text is not None:
+        return doc.extracted_text
+
+    full_path = Path(settings.upload_dir).resolve() / doc.stored_path
+    text = extract_text_from_file(full_path, doc.content_type)
+    doc.extracted_text = text
+    return text
+
+
 def _get_insights_context_for_user(session: Session, user_id: Any) -> list[dict]:
     """
     Return list of dicts with document id, filename, classification, and insights
@@ -32,6 +82,7 @@ def _get_insights_context_for_user(session: Session, user_id: Any) -> list[dict]
         select(Document)
         .where(Document.user_id == user_id)
         .order_by(Document.created_at.asc())
+        .options(defer(Document.extracted_text))
     )
     docs = result.scalars().all()
     out = []
@@ -66,8 +117,7 @@ def classify_document_task(self, document_id: str) -> dict:
         if doc is None:
             return {"ok": False, "error": "document_not_found", "document_id": document_id}
 
-        full_path = Path(settings.upload_dir).resolve() / doc.stored_path
-        text = extract_text_from_file(full_path, doc.content_type)
+        text = _get_document_text(doc)
         classification = classify_document_text(
             text,
             filename=doc.filename,
@@ -106,8 +156,7 @@ def summarize_document_task(self, document_id: str) -> dict:
         if doc is None:
             return {"ok": False, "error": "document_not_found", "document_id": document_id}
 
-        full_path = Path(settings.upload_dir).resolve() / doc.stored_path
-        text = extract_text_from_file(full_path, doc.content_type)
+        text = _get_document_text(doc)
         summary = summarize_document_text(
             text,
             filename=doc.filename,
@@ -156,8 +205,7 @@ def generate_insights_task(self, document_id: str) -> dict:
         if doc is None:
             return {"ok": False, "error": "document_not_found", "document_id": document_id}
 
-        full_path = Path(settings.upload_dir).resolve() / doc.stored_path
-        text = extract_text_from_file(full_path, doc.content_type)
+        text = _get_document_text(doc)
         insights = extract_document_insights(
             text,
             filename=doc.filename,
