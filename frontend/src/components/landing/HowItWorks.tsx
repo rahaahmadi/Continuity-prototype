@@ -34,7 +34,7 @@ const HowItWorks = () => {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <h2 className="text-3xl md:text-4xl font-serif font-bold text-foreground mb-4">
+          <h2 className="text-3xl md:text-4xl font-sans font-bold text-foreground mb-4">
             Four steps to sale-ready
           </h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">

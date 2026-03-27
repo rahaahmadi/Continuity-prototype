@@ -52,7 +52,7 @@ const Dashboard = () => {
           <div className="border-b border-border bg-card px-8 py-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h1 className="text-2xl font-serif font-bold text-foreground">Prepare</h1>
+                <h1 className="text-2xl font-sans font-bold text-foreground">Prepare</h1>
                 <p className="text-sm text-muted-foreground mt-1">
                   Capture information and build the business profile.
                 </p>
@@ -81,7 +81,7 @@ const Dashboard = () => {
       {tab === "documents" && (
         <div className="flex flex-1 h-full flex-col overflow-hidden">
           <div className="border-b border-border bg-card px-8 py-6 shrink-0">
-            <h1 className="text-2xl font-serif font-bold text-foreground">Documents</h1>
+            <h1 className="text-2xl font-sans font-bold text-foreground">Documents</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Browse the data room, upload new files, or remove outdated documents.
             </p>
@@ -95,7 +95,7 @@ const Dashboard = () => {
       {tab === "share" && (
         <div className="flex-1 overflow-y-auto">
           <div className="border-b border-border bg-card px-8 py-6">
-            <h1 className="text-2xl font-serif font-bold text-foreground">Share</h1>
+            <h1 className="text-2xl font-sans font-bold text-foreground">Share</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Control access levels and share the right view with each buyer.
             </p>

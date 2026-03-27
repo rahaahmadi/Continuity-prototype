@@ -21,7 +21,7 @@ const Hero = () => {
               Trusted by 500+ business owners
             </div>
 
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold text-foreground leading-[1.1] mb-6">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-sans font-bold text-foreground leading-[1.1] mb-6">
               Build <span className="text-gradient-gold">Confidence</span> in Your Business
             </h1>
 

@@ -62,7 +62,7 @@ const Login = () => {
 
       <Card className="w-full max-w-md border-border bg-card shadow-soft rounded-xl">
         <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-serif font-bold text-foreground">Sign in</CardTitle>
+          <CardTitle className="text-2xl font-sans font-bold text-foreground">Sign in</CardTitle>
           <CardDescription className="text-muted-foreground">
             Enter your email and password to access your dashboard.
           </CardDescription>
