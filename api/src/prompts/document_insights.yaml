@@ -10,7 +10,18 @@ messages:
       Extract key information relevant for business sale due diligence.
       Only extract information explicitly present in the document.
       Do not infer or guess missing details.
-      If a field is not present, return an empty list.
+      If a list field is not present, return an empty list.
+      If a scalar field is not present, return null.
+
+      Additional extraction requirements:
+      - Prioritize extraction for:
+        - business_snapshot: entity_type, years_operating, headcount, trailing_revenue, trailing_ebitda
+        - financial_highlights: revenue_trend_points, gross_profit_by_period, gross_margin_pct_by_period, cash_and_equivalents_by_period, ebitda_margin, debt_summary, working_capital_flags
+        - customer_concentration: top_customers, customer_concentration_percentages, customer_concentration_risk_tier
+      - Keep values faithful to source text (do not normalize or calculate missing values).
+      - Preserve units/qualifiers exactly when relevant (%, $, TTM, FY2024, etc.).
+      - For revenue_trend_points and top_customers, include period whenever explicitly available.
+      - Do not populate risk tier unless the source explicitly states a tier/label.
 
   - role: human
     content: |

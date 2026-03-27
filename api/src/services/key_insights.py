@@ -22,6 +22,56 @@ ALLOWED_KEY_INSIGHT_KINDS = {
 }
 
 
+def _has_meaningful_value(value) -> bool:
+    """Recursively determine whether a value contains meaningful extracted data."""
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (list, tuple, set)):
+        return any(_has_meaningful_value(item) for item in value)
+    if isinstance(value, dict):
+        return any(_has_meaningful_value(v) for v in value.values())
+    return True
+
+
+def _append_insight_lines(lines: list[str], key: str, value, indent: int = 1) -> None:
+    """Flatten nested insight structures into readable lines for prompting."""
+    prefix = "  " * indent
+    if value is None:
+        return
+    if isinstance(value, str):
+        if value.strip():
+            lines.append(f"{prefix}{key}: {value}")
+        return
+    if isinstance(value, dict):
+        if not _has_meaningful_value(value):
+            return
+        lines.append(f"{prefix}{key}:")
+        for sub_key, sub_value in value.items():
+            _append_insight_lines(lines, str(sub_key), sub_value, indent + 1)
+        return
+    if isinstance(value, (list, tuple, set)):
+        if not value:
+            return
+        lines.append(f"{prefix}{key}:")
+        for item in value:
+            if isinstance(item, dict):
+                if _has_meaningful_value(item):
+                    serialized = ", ".join(
+                        f"{k}={v}" for k, v in item.items() if _has_meaningful_value(v)
+                    )
+                    if serialized:
+                        lines.append(f"{prefix}  - {serialized}")
+            elif isinstance(item, str):
+                if item.strip():
+                    lines.append(f"{prefix}  - {item}")
+            elif _has_meaningful_value(item):
+                lines.append(f"{prefix}  - {item}")
+        return
+    lines.append(f"{prefix}{key}: {value}")
+
+
 class KeyInsight(BaseModel):
     """Single ranked key insight for the report overview."""
 
@@ -67,11 +117,8 @@ def generate_top_key_insights(
         filename = item.get("filename") or "Unknown"
         insights = item.get("insights") or {}
         block = [f"--- Document {i}: {filename} (Classification: {classification}) ---"]
-        for key, values in insights.items():
-            if isinstance(values, list) and values:
-                block.append(f"  {key}:")
-                for v in values:
-                    block.append(f"    - {v}")
+        for key, value in insights.items():
+            _append_insight_lines(block, key, value)
         parts.append("\n".join(block))
     context_str = "\n\n".join(parts)
 

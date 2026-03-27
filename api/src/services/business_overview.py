@@ -11,14 +11,61 @@ from src.prompt_loader import get_prompt
 DEFAULT_OPENAI_MODEL = "gpt-4o-mini"
 
 
+def _has_meaningful_value(value: Any) -> bool:
+    """Recursively determine whether a value contains meaningful extracted data."""
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (list, tuple, set)):
+        return any(_has_meaningful_value(item) for item in value)
+    if isinstance(value, dict):
+        return any(_has_meaningful_value(v) for v in value.values())
+    return True
+
+
+def _append_insight_lines(lines: list[str], key: str, value: Any, indent: int = 1) -> None:
+    """Flatten nested insight structures into readable lines for prompting."""
+    prefix = "  " * indent
+    if value is None:
+        return
+    if isinstance(value, str):
+        if value.strip():
+            lines.append(f"{prefix}{key}: {value}")
+        return
+    if isinstance(value, dict):
+        if not _has_meaningful_value(value):
+            return
+        lines.append(f"{prefix}{key}:")
+        for sub_key, sub_value in value.items():
+            _append_insight_lines(lines, str(sub_key), sub_value, indent + 1)
+        return
+    if isinstance(value, (list, tuple, set)):
+        if not value:
+            return
+        lines.append(f"{prefix}{key}:")
+        for item in value:
+            if isinstance(item, dict):
+                if _has_meaningful_value(item):
+                    serialized = ", ".join(
+                        f"{k}={v}" for k, v in item.items() if _has_meaningful_value(v)
+                    )
+                    if serialized:
+                        lines.append(f"{prefix}  - {serialized}")
+            elif isinstance(item, str):
+                if item.strip():
+                    lines.append(f"{prefix}  - {item}")
+            elif _has_meaningful_value(item):
+                lines.append(f"{prefix}  - {item}")
+        return
+    lines.append(f"{prefix}{key}: {value}")
+
+
 def _insights_all_empty(insights: dict | None) -> bool:
-    """Return True if insights is None or all list fields are empty."""
+    """Return True if insights is None or has no meaningful fields."""
     if not insights or not isinstance(insights, dict):
         return True
-    for v in insights.values():
-        if isinstance(v, list) and v:
-            return False
-    return True
+    return not _has_meaningful_value(insights)
 
 
 def compute_documents_snapshot(context: list[dict]) -> str:
@@ -80,11 +127,8 @@ def generate_business_overview_narrative(
         filename = item.get("filename") or "Unknown"
         insights = item.get("insights") or {}
         block = [f"--- Document {i}: {filename} (Classification: {classification}) ---"]
-        for key, values in insights.items():
-            if isinstance(values, list) and values:
-                block.append(f"  {key}:")
-                for v in values:
-                    block.append(f"    - {v}")
+        for key, value in insights.items():
+            _append_insight_lines(block, key, value)
         parts.append("\n".join(block))
     context_str = "\n\n".join(parts)
 
