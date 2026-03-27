@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Send, Plus, Mic, Bot, User, Upload, Camera, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,28 +11,19 @@ import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getDocument, uploadDocument } from "@/lib/api";
 import { getFileCategoryLabel, getCategoryIconClass } from "@/lib/fileCategory";
+import {
+  parsePrepareChat,
+  prepareChatStorageKey,
+  stringifyPrepareChat,
+  type PrepareChatMessage,
+  type PrepareChatMessageUpload,
+} from "@/lib/prepareChatStorage";
 import { cn } from "@/lib/utils";
 
 const CLASSIFICATION_POLL_MS = 2000;
 const CLASSIFICATION_MAX_POLLS = 45;
 
-type MessageUpload = {
-  documentId: string | null;
-  filename: string;
-  fileTypeLabel: string;
-  uploading: boolean;
-  documentCategory: string | null;
-  error?: string;
-  pollExceeded?: boolean;
-};
-
-interface Message {
-  id: string;
-  role: "assistant" | "user";
-  content: string;
-  timestamp: Date;
-  upload?: MessageUpload;
-}
+type Message = PrepareChatMessage;
 
 const initialMessages: Message[] = [
   {
@@ -59,9 +50,11 @@ function renderMarkdownishLine(line: string, key: string, withTopMargin = false)
 }
 
 const ChatInterface = () => {
-  const { token } = useAuth();
+  const { token, user, isInitialized } = useAuth();
   const { toast } = useToast();
+  const storageKey = useMemo(() => prepareChatStorageKey(user?.id), [user?.id]);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [storageHydrated, setStorageHydrated] = useState(false);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -104,6 +97,35 @@ const ChatInterface = () => {
     },
     [token],
   );
+
+  useEffect(() => {
+    if (!isInitialized) return;
+    setStorageHydrated(false);
+    const raw = localStorage.getItem(storageKey);
+    const parsed = raw ? parsePrepareChat(raw) : null;
+    const next = parsed && parsed.length > 0 ? parsed : initialMessages;
+    setMessages(next);
+    queueMicrotask(() => {
+      setStorageHydrated(true);
+      if (token) {
+        for (const m of next) {
+          const u = m.upload;
+          if (u?.documentId && !u.documentCategory && !u.pollExceeded && !u.error) {
+            void pollClassification(u.documentId, m.id);
+          }
+        }
+      }
+    });
+  }, [isInitialized, storageKey, token, pollClassification]);
+
+  useEffect(() => {
+    if (!storageHydrated) return;
+    try {
+      localStorage.setItem(storageKey, stringifyPrepareChat(messages));
+    } catch {
+      // QuotaExceeded or private mode — keep chat in memory only
+    }
+  }, [messages, storageKey, storageHydrated]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -231,7 +253,7 @@ const ChatInterface = () => {
     }, 1500);
   };
 
-  const categoryCaption = (upload: MessageUpload): string => {
+  const categoryCaption = (upload: PrepareChatMessageUpload): string => {
     if (upload.error) return "";
     if (upload.uploading) return "Uploading file…";
     if (upload.documentCategory) {

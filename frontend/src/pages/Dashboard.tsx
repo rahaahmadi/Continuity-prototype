@@ -30,9 +30,14 @@ const shareTiers = [
   },
 ];
 
+const DASHBOARD_TABS = ["prepare", "documents", "share"] as const;
+
 const Dashboard = () => {
   const location = useLocation();
-  const tab = new URLSearchParams(location.search).get("tab") ?? "prepare";
+  const rawTab = new URLSearchParams(location.search).get("tab") ?? "prepare";
+  const tab = DASHBOARD_TABS.includes(rawTab as (typeof DASHBOARD_TABS)[number])
+    ? rawTab
+    : "prepare";
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [documentChecklistOpen, setDocumentChecklistOpen] = useState(false);
   const { completed: checklistDone, total: checklistTotal } = getDocumentChecklistProgress();
