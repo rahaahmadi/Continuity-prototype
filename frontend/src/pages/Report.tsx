@@ -148,7 +148,7 @@ const Report = () => {
         <div className="border-b border-border bg-card px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-serif font-bold text-foreground">Business Profile</h1>
+              <h1 className="text-2xl font-sans font-bold text-foreground">Business Profile</h1>
               <p className="text-sm text-muted-foreground mt-1">Generated insights and reports for your business.</p>
             </div>
             <div className="flex items-center gap-3">
