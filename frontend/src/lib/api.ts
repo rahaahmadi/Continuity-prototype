@@ -17,12 +17,6 @@ export type LoginResponse = {
   user: UserResponse;
 };
 
-export type RegisterResponse = {
-  id: string;
-  email: string;
-  message: string;
-};
-
 async function handleResponse<T>(res: Response): Promise<T> {
   const text = await res.text();
   if (!res.ok) {
@@ -54,13 +48,13 @@ export async function login(email: string, password: string): Promise<LoginRespo
   return handleResponse<LoginResponse>(res);
 }
 
-export async function register(email: string, password: string): Promise<RegisterResponse> {
+export async function register(email: string, password: string): Promise<LoginResponse> {
   const res = await fetch(`${getApiUrl()}/api/auth/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
-  return handleResponse<RegisterResponse>(res);
+  return handleResponse<LoginResponse>(res);
 }
 
 export async function logout(token: string): Promise<void> {
