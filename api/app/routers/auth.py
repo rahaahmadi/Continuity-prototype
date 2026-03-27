@@ -16,7 +16,6 @@ from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
     RegisterRequest,
-    RegisterResponse,
     UserResponse,
 )
 from app.services.auth import create_access_token, hash_password, verify_password
@@ -24,12 +23,12 @@ from app.services.auth import create_access_token, hash_password, verify_passwor
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=LoginResponse, status_code=status.HTTP_201_CREATED)
 async def register(
     body: RegisterRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-) -> RegisterResponse:
-    """Register a new user with email and password. Email must be unique."""
+) -> LoginResponse:
+    """Register a new user with email and password. Returns tokens like login so the client can enter the app immediately."""
     result = await db.execute(select(User).where(User.email == body.email.lower()))
     if result.scalar_one_or_none() is not None:
         raise HTTPException(
@@ -43,9 +42,16 @@ async def register(
     db.add(user)
     await db.flush()
     await db.refresh(user)
-    return RegisterResponse(
-        id=user.id,
-        email=user.email,
+    token, expires_in = create_access_token(user.id)
+    return LoginResponse(
+        access_token=token,
+        expires_in_seconds=expires_in,
+        user=UserResponse(
+            id=user.id,
+            email=user.email,
+            is_active=user.is_active,
+            created_at=user.created_at,
+        ),
     )
 
 

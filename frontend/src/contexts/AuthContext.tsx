@@ -72,8 +72,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const register = useCallback(async (email: string, password: string) => {
-    await apiRegister(email, password);
-    // Don't auto-login; user goes to login page
+    const data = await apiRegister(email, password);
+    localStorage.setItem(TOKEN_KEY, data.access_token);
+    localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+    setState({ token: data.access_token, user: data.user, isInitialized: true });
   }, []);
 
   const logout = useCallback(async () => {

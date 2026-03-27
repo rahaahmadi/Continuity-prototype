@@ -8,8 +8,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 const navItems = [
   { to: "/dashboard?tab=prepare", icon: Brain, label: "Prepare", tab: "prepare" },
-  { to: "/report", icon: FileBarChart, label: "Reports" },
   { to: "/dashboard?tab=documents", icon: FolderOpen, label: "Documents", tab: "documents" },
+  { to: "/report", icon: FileBarChart, label: "Reports" },
   { to: "/qa", icon: MessageSquare, label: "Q&A" },
   { to: "/dashboard?tab=share", icon: Share2, label: "Share", tab: "share" },
 ];

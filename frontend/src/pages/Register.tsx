@@ -41,7 +41,6 @@ const Register = () => {
   const navigate = useNavigate();
   const { register: doRegister, isAuthenticated } = useAuth();
   const [serverError, setServerError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -57,41 +56,11 @@ const Register = () => {
     setServerError(null);
     try {
       await doRegister(values.email, values.password);
-      setSuccess(true);
+      navigate("/dashboard", { replace: true });
     } catch (err) {
       setServerError(err instanceof Error ? err.message : "Registration failed. Please try again.");
     }
   };
-
-  if (success) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
-        <div className="absolute inset-0 bg-gradient-to-b from-gold-light/20 via-background to-background -z-10" />
-        <Link to="/" className="absolute top-6 left-6 flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg gradient-navy flex items-center justify-center">
-            <span className="text-sm font-bold text-primary-foreground">C</span>
-          </div>
-          <span className="text-lg font-semibold tracking-tight text-foreground">Continuity</span>
-        </Link>
-        <Card className="w-full max-w-md border-border bg-card shadow-soft rounded-xl">
-          <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-serif font-bold text-foreground">You&apos;re all set</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              Your account has been created. Sign in to continue to your dashboard.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              asChild
-              className="w-full gradient-gold text-accent-foreground shadow-gold hover:opacity-90 transition-opacity"
-            >
-              <Link to="/login">Sign in</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
