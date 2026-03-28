@@ -11,7 +11,7 @@ alembic
 # Auth & validation
 python-jose[cryptography]
 bcrypt>=4.0,<5
-pydantic[email-validator]>=2
+pydantic[email]>=2
 pydantic-settings
 
 # Utils
