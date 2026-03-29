@@ -1,6 +1,8 @@
 """Extract text from uploaded document files using Docling and LangChain loaders."""
 
+import threading
 from pathlib import Path
+from typing import Any
 
 from langchain_community.document_loaders import CSVLoader, TextLoader
 
@@ -23,6 +25,10 @@ _NATIVE_SUFFIXES = frozenset({
 # treated as scanned/image-only and re-processed with OCR.
 _SCANNED_PDF_THRESHOLD = 150
 
+# Process-wide converter cache: at most two instances (OCR on / off).
+_converter_lock = threading.Lock()
+_converter_cache: dict[bool, Any] = {}
+
 
 def _make_converter(*, enable_ocr: bool):
     """
@@ -43,13 +49,27 @@ def _make_converter(*, enable_ocr: bool):
     )
 
 
+def _get_converter(*, enable_ocr: bool) -> Any:
+    """
+    Return a process-wide cached DocumentConverter for the given OCR mode.
+    The first call builds the converter (expensive); all subsequent calls reuse it.
+    Double-checked locking avoids the lock overhead on the hot path.
+    """
+    if enable_ocr in _converter_cache:
+        return _converter_cache[enable_ocr]
+    with _converter_lock:
+        if enable_ocr not in _converter_cache:
+            _converter_cache[enable_ocr] = _make_converter(enable_ocr=enable_ocr)
+        return _converter_cache[enable_ocr]
+
+
 def _run_docling(path_str: str, *, enable_ocr: bool = False) -> str | None:
     """
     Convert a file with Docling and return its markdown representation.
     Returns None if conversion fails or produces no text.
     """
     try:
-        converter = _make_converter(enable_ocr=enable_ocr)
+        converter = _get_converter(enable_ocr=enable_ocr)
         result = converter.convert(path_str)
         text = result.document.export_to_markdown()
         return text.strip() or None
