@@ -27,4 +27,4 @@ langchain-core
 langchain-openai
 langchain-text-splitters
 langchain-community
-langchain-docling
+docling
