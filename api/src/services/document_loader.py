@@ -18,7 +18,8 @@ def _extract_with_docling(path_str: str) -> str | None:
             return None
         text = "\n".join(d.page_content for d in docs if d.page_content.strip())
         return text.strip() if text.strip() else None
-    except Exception:
+    except Exception as e:
+        print(f"Error extracting text with DoclingLoader: {e}")
         return None
 
 
