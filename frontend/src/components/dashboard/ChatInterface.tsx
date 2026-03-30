@@ -61,6 +61,7 @@ const ChatInterface = () => {
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const replyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const TEXTAREA_MAX_PX = 200;
 
@@ -127,6 +128,12 @@ const ChatInterface = () => {
       // QuotaExceeded or private mode — keep chat in memory only
     }
   }, [messages, storageKey, storageHydrated]);
+
+  useEffect(() => {
+    return () => {
+      if (replyTimeoutRef.current) clearTimeout(replyTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -230,18 +237,41 @@ const ChatInterface = () => {
   };
 
   const handleSend = () => {
-    if (!input.trim()) return;
+    const trimmed = input.trim();
+    if (!trimmed) return;
+
+    if (trimmed.toLowerCase() === "/clear") {
+      if (replyTimeoutRef.current) {
+        clearTimeout(replyTimeoutRef.current);
+        replyTimeoutRef.current = null;
+      }
+      setIsTyping(false);
+      setMessages(initialMessages);
+      setInput("");
+      try {
+        localStorage.removeItem(storageKey);
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+
     const userMsg: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input,
+      content: trimmed,
       timestamp: new Date(),
     };
     setMessages(prev => [...prev, userMsg]);
     setInput("");
+    if (replyTimeoutRef.current) {
+      clearTimeout(replyTimeoutRef.current);
+      replyTimeoutRef.current = null;
+    }
     setIsTyping(true);
 
-    setTimeout(() => {
+    replyTimeoutRef.current = setTimeout(() => {
+      replyTimeoutRef.current = null;
       const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
