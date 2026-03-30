@@ -410,7 +410,8 @@ const ChatInterface = () => {
               <DropdownMenuContent align="start">
                 <DropdownMenuItem
                   className="gap-2"
-                  onSelect={() => {
+                  onSelect={(e) => {
+                    e.preventDefault();
                     fileInputRef.current?.click();
                   }}
                 >
