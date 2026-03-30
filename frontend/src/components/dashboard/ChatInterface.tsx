@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo, useId } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Send, Plus, Mic, Bot, User, Upload, Camera, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,7 +60,7 @@ const ChatInterface = () => {
   const [isTyping, setIsTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputId = useId();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const TEXTAREA_MAX_PX = 200;
 
@@ -374,10 +374,11 @@ const ChatInterface = () => {
       <div className="mx-auto w-full max-w-2xl shrink-0 px-6 py-2">
         <div className="rounded-2xl border border-border bg-card p-2 shadow-soft transition-colors focus-within:border-accent/60 focus-within:ring-2 focus-within:ring-ring/15">
           <input
-            id={fileInputId}
+            ref={fileInputRef}
             type="file"
             multiple
-            className="hidden"
+            className="sr-only"
+            tabIndex={-1}
             onChange={handleAttachmentInputChange}
           />
           <textarea
@@ -407,11 +408,14 @@ const ChatInterface = () => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
-                <DropdownMenuItem asChild className="gap-2 cursor-pointer">
-                  <label htmlFor={fileInputId}>
-                    <Upload className="h-4 w-4" />
-                    Upload files
-                  </label>
+                <DropdownMenuItem
+                  className="gap-2"
+                  onSelect={() => {
+                    fileInputRef.current?.click();
+                  }}
+                >
+                  <Upload className="h-4 w-4" />
+                  Upload files
                 </DropdownMenuItem>
                 <DropdownMenuItem className="gap-2">
                   <Camera className="h-4 w-4" />
