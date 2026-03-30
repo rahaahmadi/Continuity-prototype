@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Send, Plus, Mic, Bot, User, Upload, Camera, FileText, Loader2 } from "lucide-react";
+import { Send, Plus, Mic, Bot, User, Upload, Camera, FileText, Loader2, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,8 +9,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { getDocument, uploadDocument } from "@/lib/api";
-import { labelToCamelCase } from "@/constants/documentLabels";
+import { getDocument, prepareChat, uploadDocument } from "@/lib/api";
+import { DOCUMENT_LABELS, labelToCamelCase, type DocumentLabel } from "@/constants/documentLabels";
 import { getFileCategoryLabel, getCategoryIconClass } from "@/lib/fileCategory";
 import {
   parsePrepareChat,
@@ -19,6 +19,13 @@ import {
   type PrepareChatMessage,
   type PrepareChatMessageUpload,
 } from "@/lib/prepareChatStorage";
+import {
+  DEFAULT_PREPARE_FLOW,
+  parsePrepareFlow,
+  prepareFlowStorageKey,
+  stringifyPrepareFlow,
+  type PrepareFlowState,
+} from "@/lib/prepareFlowStorage";
 import { cn } from "@/lib/utils";
 
 const CLASSIFICATION_POLL_MS = 2000;
@@ -50,20 +57,34 @@ function renderMarkdownishLine(line: string, key: string, withTopMargin = false)
   );
 }
 
+function toApiMessages(msgs: Message[]): { role: "user" | "assistant"; content: string }[] {
+  return msgs
+    .filter(m => m.content.trim().length > 0)
+    .map(m => ({ role: m.role, content: m.content.trim() }));
+}
+
 const ChatInterface = () => {
   const { token, user, isInitialized } = useAuth();
   const { toast } = useToast();
   const storageKey = useMemo(() => prepareChatStorageKey(user?.id), [user?.id]);
+  const flowKey = useMemo(() => prepareFlowStorageKey(user?.id), [user?.id]);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [flow, setFlow] = useState<PrepareFlowState>(DEFAULT_PREPARE_FLOW);
   const [storageHydrated, setStorageHydrated] = useState(false);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const replyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flowRef = useRef<PrepareFlowState>(flow);
+  flowRef.current = flow;
 
   const TEXTAREA_MAX_PX = 200;
+
+  const hasUserTextMessage = useMemo(
+    () => messages.some(m => m.role === "user" && m.content.trim().length > 0),
+    [messages],
+  );
 
   const pollClassification = useCallback(
     async (documentId: string, messageId: string) => {
@@ -100,6 +121,45 @@ const ChatInterface = () => {
     [token],
   );
 
+  const fetchAssistant = useCallback(
+    async (history: Message[], flowSnapshot: PrepareFlowState) => {
+      if (!token) {
+        toast({
+          title: "Sign in to continue",
+          description: "Create an account or sign in to use the assistant on Prepare.",
+          variant: "destructive",
+        });
+        setIsTyping(false);
+        return;
+      }
+      const apiMessages = toApiMessages(history);
+      try {
+        const res = await prepareChat(token, {
+          messages: apiMessages,
+          stage: flowSnapshot.stage,
+          active_document_category: flowSnapshot.activeDocumentCategory,
+        });
+        const aiMsg: Message = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: res.assistant_message,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, aiMsg]);
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Request failed";
+        toast({
+          title: "Assistant unavailable",
+          description: message,
+          variant: "destructive",
+        });
+      } finally {
+        setIsTyping(false);
+      }
+    },
+    [token, toast],
+  );
+
   useEffect(() => {
     if (!isInitialized) return;
     setStorageHydrated(false);
@@ -107,6 +167,10 @@ const ChatInterface = () => {
     const parsed = raw ? parsePrepareChat(raw) : null;
     const next = parsed && parsed.length > 0 ? parsed : initialMessages;
     setMessages(next);
+
+    const rawFlow = localStorage.getItem(flowKey);
+    setFlow(rawFlow ? parsePrepareFlow(rawFlow) ?? DEFAULT_PREPARE_FLOW : DEFAULT_PREPARE_FLOW);
+
     queueMicrotask(() => {
       setStorageHydrated(true);
       if (token) {
@@ -118,22 +182,25 @@ const ChatInterface = () => {
         }
       }
     });
-  }, [isInitialized, storageKey, token, pollClassification]);
+  }, [isInitialized, storageKey, flowKey, token, pollClassification]);
 
   useEffect(() => {
     if (!storageHydrated) return;
     try {
       localStorage.setItem(storageKey, stringifyPrepareChat(messages));
     } catch {
-      // QuotaExceeded or private mode — keep chat in memory only
+      /* ignore */
     }
   }, [messages, storageKey, storageHydrated]);
 
   useEffect(() => {
-    return () => {
-      if (replyTimeoutRef.current) clearTimeout(replyTimeoutRef.current);
-    };
-  }, []);
+    if (!storageHydrated) return;
+    try {
+      localStorage.setItem(flowKey, stringifyPrepareFlow(flow));
+    } catch {
+      /* ignore */
+    }
+  }, [flow, flowKey, storageHydrated]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -236,52 +303,135 @@ const ChatInterface = () => {
     e.target.value = "";
   };
 
+  const startDocumentPhase = () => {
+    if (isTyping) return;
+    if (!token) {
+      toast({
+        title: "Sign in to continue",
+        description: "Create an account or sign in to move on to document uploads.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const nextFlow: PrepareFlowState = {
+      ...flow,
+      stage: "documents",
+      activeDocumentCategory: null,
+    };
+    setFlow(nextFlow);
+    const userMsg: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: "I'm ready to start uploading due diligence documents.",
+      timestamp: new Date(),
+    };
+    setIsTyping(true);
+    setMessages(prev => {
+      const next = [...prev, userMsg];
+      void fetchAssistant(next, nextFlow);
+      return next;
+    });
+  };
+
+  const selectDocumentCategory = (cat: DocumentLabel) => {
+    if (isTyping) return;
+    if (!token) {
+      toast({
+        title: "Sign in to continue",
+        description: "Create an account or sign in to use category guidance.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const nextFlow: PrepareFlowState = {
+      ...flow,
+      stage: "documents",
+      activeDocumentCategory: cat,
+    };
+    setFlow(nextFlow);
+    const userMsg: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: `I'm focusing on uploads for **${labelToCamelCase(cat)}**.`,
+      timestamp: new Date(),
+    };
+    setIsTyping(true);
+    setMessages(prev => {
+      const next = [...prev, userMsg];
+      void fetchAssistant(next, nextFlow);
+      return next;
+    });
+  };
+
+  const goToAnotherDocumentCategory = () => {
+    if (isTyping) return;
+    if (!token) return;
+    const completed =
+      flow.activeDocumentCategory &&
+      !flow.completedDocumentCategories.includes(flow.activeDocumentCategory)
+        ? [...flow.completedDocumentCategories, flow.activeDocumentCategory]
+        : flow.completedDocumentCategories;
+    const nextFlow: PrepareFlowState = {
+      ...flow,
+      stage: "documents",
+      activeDocumentCategory: null,
+      completedDocumentCategories: completed,
+    };
+    setFlow(nextFlow);
+    const userMsg: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: "I'd like to work on another document category.",
+      timestamp: new Date(),
+    };
+    setIsTyping(true);
+    setMessages(prev => {
+      const next = [...prev, userMsg];
+      void fetchAssistant(next, nextFlow);
+      return next;
+    });
+  };
+
   const handleSend = () => {
     const trimmed = input.trim();
     if (!trimmed) return;
 
     if (trimmed.toLowerCase() === "/clear") {
-      if (replyTimeoutRef.current) {
-        clearTimeout(replyTimeoutRef.current);
-        replyTimeoutRef.current = null;
-      }
       setIsTyping(false);
       setMessages(initialMessages);
+      setFlow(DEFAULT_PREPARE_FLOW);
       setInput("");
       try {
         localStorage.removeItem(storageKey);
+        localStorage.removeItem(flowKey);
       } catch {
         /* ignore */
       }
       return;
     }
 
+    if (!token) {
+      toast({
+        title: "Sign in to chat",
+        description: "Create an account or sign in to talk with the assistant.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const userMsg: Message = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       role: "user",
       content: trimmed,
       timestamp: new Date(),
     };
-    setMessages(prev => [...prev, userMsg]);
     setInput("");
-    if (replyTimeoutRef.current) {
-      clearTimeout(replyTimeoutRef.current);
-      replyTimeoutRef.current = null;
-    }
     setIsTyping(true);
-
-    replyTimeoutRef.current = setTimeout(() => {
-      replyTimeoutRef.current = null;
-      const aiMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content:
-          "Thank you for sharing that! Understanding your industry context is crucial for potential buyers.\n\n**Next question:** Who are your key customers, and how dependent is the business on any single client relationship?",
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, aiMsg]);
-      setIsTyping(false);
-    }, 1500);
+    setMessages(prev => {
+      const next = [...prev, userMsg];
+      void fetchAssistant(next, flowRef.current);
+      return next;
+    });
   };
 
   const categoryCaption = (upload: PrepareChatMessageUpload): string => {
@@ -401,6 +551,69 @@ const ChatInterface = () => {
         <div ref={bottomRef} />
       </div>
 
+      {flow.stage === "business" && hasUserTextMessage && (
+        <div className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            className="h-9 gap-2 border border-border bg-muted/50 text-foreground hover:bg-muted"
+            disabled={isTyping}
+            onClick={startDocumentPhase}
+          >
+            <FolderOpen className="h-4 w-4" />
+            Start uploading documents
+          </Button>
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            When you&apos;re ready, we&apos;ll walk through document categories and what to upload for each.
+          </p>
+        </div>
+      )}
+
+      {flow.stage === "documents" && flow.activeDocumentCategory && (
+        <div className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 border-border text-foreground"
+            disabled={isTyping}
+            onClick={goToAnotherDocumentCategory}
+          >
+            Choose another category
+          </Button>
+          {flow.completedDocumentCategories.length > 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Categories you&apos;ve already opened:{" "}
+              {flow.completedDocumentCategories.map(labelToCamelCase).join(", ")}
+            </p>
+          )}
+        </div>
+      )}
+
+      {flow.stage === "documents" && !flow.activeDocumentCategory && (
+        <div className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-2">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Document categories
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {DOCUMENT_LABELS.map(cat => (
+              <Button
+                key={cat}
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-auto min-h-9 max-w-full whitespace-normal border-border py-1.5 text-left text-xs text-foreground sm:text-sm"
+                disabled={isTyping}
+                onClick={() => selectDocumentCategory(cat)}
+              >
+                {labelToCamelCase(cat)}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="mx-auto w-full max-w-2xl shrink-0 px-6 py-2">
         <div className="rounded-2xl border border-border bg-card p-2 shadow-soft transition-colors focus-within:border-accent/60 focus-within:ring-2 focus-within:ring-ring/15">
           <input
@@ -440,7 +653,7 @@ const ChatInterface = () => {
               <DropdownMenuContent align="start">
                 <DropdownMenuItem
                   className="gap-2"
-                  onSelect={(e) => {
+                  onSelect={e => {
                     e.preventDefault();
                     fileInputRef.current?.click();
                   }}

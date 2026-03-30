@@ -10,6 +10,7 @@ from app.routers import (
     business_profile_widgets,
     documents,
     key_insights,
+    prepare_chat,
 )
 
 app = FastAPI(
@@ -29,6 +30,7 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(business_overview.router, prefix="/api")
 app.include_router(business_profile_widgets.router, prefix="/api")
 app.include_router(key_insights.router, prefix="/api")
+app.include_router(prepare_chat.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 
 

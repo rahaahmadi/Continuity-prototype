@@ -204,6 +204,34 @@ export async function getDocument(token: string, documentId: string): Promise<Do
   return handleResponse<DocumentResponse>(res);
 }
 
+export type PrepareChatMessagePayload = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+export type PrepareChatRequest = {
+  messages: PrepareChatMessagePayload[];
+  stage: "business" | "documents";
+  active_document_category: string | null;
+};
+
+export type PrepareChatResponse = {
+  assistant_message: string;
+};
+
+/** Authenticated LLM turn for Prepare tab (business Q&A or document upload coaching). */
+export async function prepareChat(token: string, body: PrepareChatRequest): Promise<PrepareChatResponse> {
+  const res = await fetch(`${getApiUrl()}/api/prepare-chat`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  return handleResponse<PrepareChatResponse>(res);
+}
+
 export async function uploadDocument(token: string, file: File): Promise<DocumentResponse> {
   const form = new FormData();
   form.append("file", file);
