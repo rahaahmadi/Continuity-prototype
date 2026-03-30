@@ -396,37 +396,34 @@ const ChatInterface = () => {
             className="w-full min-h-10 max-h-[200px] resize-none overflow-y-hidden bg-transparent px-3 py-2 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-none"
           />
           <div className="flex items-center justify-between gap-2 px-1 pb-0.5 pt-1">
-            <div className="flex items-center gap-0.5">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 shrink-0 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-                aria-label="Upload files"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="h-4 w-4" />
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-9 w-9 shrink-0 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-                    aria-label="More actions"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuItem className="gap-2">
-                    <Camera className="h-4 w-4" />
-                    Take photo
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem
+                  className="gap-2"
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    fileInputRef.current?.click();
+                  }}
+                >
+                  <Upload className="h-4 w-4" />
+                  Upload files
+                </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2">
+                  <Camera className="h-4 w-4" />
+                  Take photo
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <div className="flex items-center gap-0.5">
               <Button
                 type="button"
