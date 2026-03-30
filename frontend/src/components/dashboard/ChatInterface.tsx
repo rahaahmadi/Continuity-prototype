@@ -139,13 +139,21 @@ const ChatInterface = () => {
           stage: flowSnapshot.stage,
           active_document_category: flowSnapshot.activeDocumentCategory,
         });
+        const showCategoryPicker =
+          flowSnapshot.stage === "documents" && flowSnapshot.activeDocumentCategory == null;
         const aiMsg: Message = {
           id: crypto.randomUUID(),
           role: "assistant",
           content: res.assistant_message,
           timestamp: new Date(),
+          ...(showCategoryPicker ? { categoryPicker: true } : {}),
         };
-        setMessages(prev => [...prev, aiMsg]);
+        setMessages(prev => {
+          const cleared = prev.map(m =>
+            m.categoryPicker ? { ...m, categoryPicker: false } : m,
+          );
+          return [...cleared, aiMsg];
+        });
       } catch (e) {
         const message = e instanceof Error ? e.message : "Request failed";
         toast({
@@ -165,11 +173,24 @@ const ChatInterface = () => {
     setStorageHydrated(false);
     const raw = localStorage.getItem(storageKey);
     const parsed = raw ? parsePrepareChat(raw) : null;
-    const next = parsed && parsed.length > 0 ? parsed : initialMessages;
-    setMessages(next);
+    let next = parsed && parsed.length > 0 ? parsed : initialMessages;
 
     const rawFlow = localStorage.getItem(flowKey);
-    setFlow(rawFlow ? parsePrepareFlow(rawFlow) ?? DEFAULT_PREPARE_FLOW : DEFAULT_PREPARE_FLOW);
+    const flowParsed = rawFlow ? parsePrepareFlow(rawFlow) ?? DEFAULT_PREPARE_FLOW : DEFAULT_PREPARE_FLOW;
+    if (
+      flowParsed.stage === "documents" &&
+      !flowParsed.activeDocumentCategory &&
+      !next.some(m => m.categoryPicker)
+    ) {
+      for (let i = next.length - 1; i >= 0; i--) {
+        if (next[i].role === "assistant") {
+          next = [...next.slice(0, i), { ...next[i], categoryPicker: true }, ...next.slice(i + 1)];
+          break;
+        }
+      }
+    }
+    setMessages(next);
+    setFlow(flowParsed);
 
     queueMicrotask(() => {
       setStorageHydrated(true);
@@ -522,6 +543,31 @@ const ChatInterface = () => {
                   .map((line, i) =>
                     renderMarkdownishLine(line, `${msg.id}-l${i}`, i > 0 || !!msg.upload),
                   )}
+              {msg.role === "assistant" &&
+                msg.categoryPicker &&
+                flow.stage === "documents" &&
+                !flow.activeDocumentCategory && (
+                  <div className="mt-3 border-t border-border pt-3">
+                    <p className="mb-2 text-xs font-semibold text-muted-foreground">
+                      Document Categories
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {DOCUMENT_LABELS.map(cat => (
+                        <Button
+                          key={cat}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-auto min-h-9 max-w-full whitespace-normal border-border bg-background/50 py-1.5 text-left text-xs text-foreground shadow-none hover:bg-muted/80 sm:text-sm"
+                          disabled={isTyping}
+                          onClick={() => selectDocumentCategory(cat)}
+                        >
+                          {labelToCamelCase(cat)}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
             </div>
           </div>
         ))}
@@ -582,35 +628,6 @@ const ChatInterface = () => {
           >
             Choose another category
           </Button>
-          {flow.completedDocumentCategories.length > 0 && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              Categories you&apos;ve already opened:{" "}
-              {flow.completedDocumentCategories.map(labelToCamelCase).join(", ")}
-            </p>
-          )}
-        </div>
-      )}
-
-      {flow.stage === "documents" && !flow.activeDocumentCategory && (
-        <div className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-2">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Document categories
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {DOCUMENT_LABELS.map(cat => (
-              <Button
-                key={cat}
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-auto min-h-9 max-w-full whitespace-normal border-border py-1.5 text-left text-xs text-foreground sm:text-sm"
-                disabled={isTyping}
-                onClick={() => selectDocumentCategory(cat)}
-              >
-                {labelToCamelCase(cat)}
-              </Button>
-            ))}
-          </div>
         </div>
       )}
 

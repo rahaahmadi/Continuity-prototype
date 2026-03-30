@@ -18,6 +18,8 @@ export type PrepareChatMessage = {
   content: string;
   timestamp: Date;
   upload?: PrepareChatMessageUpload;
+  /** When true (assistant only), show document category chips inside this message bubble. */
+  categoryPicker?: boolean;
 };
 
 const STORAGE_KEY_PREFIX = "continuity_prepare_chat:v1";
@@ -92,6 +94,9 @@ export function parsePrepareChat(json: string): PrepareChatMessage[] | null {
         if (upload === null) return null;
         msg.upload = upload;
       }
+      if (item.categoryPicker === true) {
+        msg.categoryPicker = true;
+      }
       out.push(msg);
     }
     return normalizeRestoredPrepareChatMessages(out);
@@ -108,6 +113,7 @@ type MessageDto = {
   content: string;
   timestamp: string;
   upload?: UploadDto;
+  categoryPicker?: boolean;
 };
 
 export function stringifyPrepareChat(messages: PrepareChatMessage[]): string {
@@ -120,6 +126,9 @@ export function stringifyPrepareChat(messages: PrepareChatMessage[]): string {
     };
     if (m.upload) {
       row.upload = { ...m.upload };
+    }
+    if (m.categoryPicker) {
+      row.categoryPicker = true;
     }
     return row;
   });
