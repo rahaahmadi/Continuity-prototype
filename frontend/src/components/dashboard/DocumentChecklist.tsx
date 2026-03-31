@@ -1,6 +1,6 @@
 import { CheckCircle2, Circle, Building2, Receipt, Scale, Users, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 interface ChecklistCategory {
   name: string;
@@ -13,8 +13,8 @@ const categories: ChecklistCategory[] = [
     name: "Financial",
     icon: Receipt,
     items: [
-      { label: "Profit & Loss (3 years)", completed: true },
-      { label: "Balance Sheet", completed: true },
+      { label: "Profit & Loss (3 years)", completed: false },
+      { label: "Balance Sheet", completed: false },
       { label: "Cash Flow Statement", completed: false },
       { label: "Tax Returns (3 years)", completed: false },
     ],
@@ -68,8 +68,6 @@ interface DocumentChecklistProps {
 }
 
 const DocumentChecklist = ({ open, onOpenChange }: DocumentChecklistProps) => {
-  const pct = Math.round((completedChecklistItems / totalChecklistItems) * 100);
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -78,12 +76,6 @@ const DocumentChecklist = ({ open, onOpenChange }: DocumentChecklistProps) => {
       >
         <SheetHeader className="space-y-0 border-b border-border p-5 pb-4 text-left">
           <SheetTitle className="pr-10 text-base font-semibold text-foreground">Document checklist</SheetTitle>
-          <SheetDescription className="text-xs text-muted-foreground">
-            {completedChecklistItems} of {totalChecklistItems} uploaded
-          </SheetDescription>
-          <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-muted">
-            <div className="h-full gradient-gold rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
-          </div>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto p-3">

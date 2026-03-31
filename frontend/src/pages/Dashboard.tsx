@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Eye, Shield, Lock, Share2, Copy, Mail, CheckSquare } from "lucide-react";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
-import DocumentChecklist, { getDocumentChecklistProgress } from "@/components/dashboard/DocumentChecklist";
+import DocumentChecklist from "@/components/dashboard/DocumentChecklist";
 import DocumentRepository from "@/components/dashboard/DocumentRepository";
 import ChatInterface from "@/components/dashboard/ChatInterface";
 import SettingsModal from "@/components/dashboard/SettingsModal";
@@ -40,7 +40,6 @@ const Dashboard = () => {
     : "prepare";
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [documentChecklistOpen, setDocumentChecklistOpen] = useState(false);
-  const { completed: checklistDone, total: checklistTotal } = getDocumentChecklistProgress();
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -65,9 +64,6 @@ const Dashboard = () => {
               >
                 <CheckSquare className="h-4 w-4" />
                 <span>Document checklist</span>
-                <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
-                  {checklistDone}/{checklistTotal}
-                </span>
               </Button>
             </div>
           </div>
