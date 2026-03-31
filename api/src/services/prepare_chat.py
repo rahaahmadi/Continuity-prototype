@@ -24,6 +24,10 @@ Style:
 - Use Markdown: put the main question in **bold**.
 - Do not fabricate facts about their company; only ask and reflect.
 - If they go off-topic briefly, acknowledge and steer back gently.
+
+Scope for this mode:
+- You are in **business discovery only**. Answer their question or reflect what you know from the chat.
+- Do **not** ask them to pick document categories, attach files, or use upload controls unless they clearly say they want to move on to document uploads.
 """
 
 DOCUMENTS_PICK_SYSTEM = """The user is in the **document upload** step of preparing for due diligence.

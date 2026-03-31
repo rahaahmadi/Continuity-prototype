@@ -446,11 +446,28 @@ const ChatInterface = () => {
       content: trimmed,
       timestamp: new Date(),
     };
+
+    const priorFlow = flowRef.current;
+    const revertedFromDocuments = priorFlow.stage === "documents";
+    const nextFlow: PrepareFlowState = revertedFromDocuments
+      ? {
+          ...priorFlow,
+          stage: "business",
+          activeDocumentCategory: null,
+        }
+      : priorFlow;
+    if (revertedFromDocuments) {
+      setFlow(nextFlow);
+    }
+
     setInput("");
     setIsTyping(true);
     setMessages(prev => {
-      const next = [...prev, userMsg];
-      void fetchAssistant(next, flowRef.current);
+      const base = revertedFromDocuments
+        ? prev.map(m => (m.categoryPicker ? { ...m, categoryPicker: false } : m))
+        : prev;
+      const next = [...base, userMsg];
+      void fetchAssistant(next, nextFlow);
       return next;
     });
   };
@@ -598,26 +615,22 @@ const ChatInterface = () => {
       </div>
 
       {flow.stage === "business" && hasUserTextMessage && (
-        <div className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-2">
+        <div className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-1 text-left">
           <Button
             type="button"
-            variant="secondary"
-            size="sm"
-            className="h-9 gap-2 border border-border bg-muted/50 text-foreground hover:bg-muted"
+            variant="outline"
+            className="h-8 gap-2 rounded-full border border-border/80 bg-background px-3.5 text-xs font-normal leading-none text-foreground shadow-none transition-colors hover:bg-muted/40 disabled:opacity-50 [&_svg]:size-[15px] [&_svg]:stroke-[1.35]"
             disabled={isTyping}
             onClick={startDocumentPhase}
           >
-            <FolderOpen className="h-4 w-4" />
+            <FolderOpen className="shrink-0 opacity-90" aria-hidden />
             Start uploading documents
           </Button>
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            When you&apos;re ready, we&apos;ll walk through document categories and what to upload for each.
-          </p>
         </div>
       )}
 
       {flow.stage === "documents" && flow.activeDocumentCategory && (
-        <div className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-2">
+        <div className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-1">
           <Button
             type="button"
             variant="outline"
@@ -631,7 +644,7 @@ const ChatInterface = () => {
         </div>
       )}
 
-      <div className="mx-auto w-full max-w-2xl shrink-0 px-6 py-2">
+      <div className="mx-auto w-full max-w-2xl shrink-0 px-6 pb-2 pt-1">
         <div className="rounded-2xl border border-border bg-card p-2 shadow-soft transition-colors focus-within:border-accent/60 focus-within:ring-2 focus-within:ring-ring/15">
           <input
             ref={fileInputRef}
