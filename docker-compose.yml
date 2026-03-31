@@ -72,8 +72,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - certbot_www:/var/www/certbot:ro
-      - certbot_conf:/etc/letsencrypt:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
     depends_on:
       - api
 
@@ -81,5 +81,3 @@ volumes:
   postgres_data:
   redis_data:
   uploads:
-  certbot_www:
-  certbot_conf:
