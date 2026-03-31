@@ -92,9 +92,6 @@ const Report = () => {
 
   const revenuePoints = widgets?.revenue_trend_points ?? [];
   const readinessScore = widgets?.readiness_score ?? 0;
-  const readinessSubtitle = widgets
-    ? `${widgets.readiness_completed_checks}/${widgets.readiness_total_checks} core checks complete`
-    : "Continue uploading documents and answering questions to improve your score.";
 
   // KPI card visibility — only show when data is present
   const revenueTTM = widgets?.business_snapshot.trailing_revenue ?? null;
@@ -177,9 +174,6 @@ const Report = () => {
                     style={{ width: `${readinessScore}%` }}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground mt-3">
-                  {readinessSubtitle}
-                </p>
               </div>
 
               {/* KPI Cards — only render cards with real data */}
